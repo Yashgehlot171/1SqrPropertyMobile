@@ -1,5 +1,11 @@
 pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
 plugins { id("com.facebook.react.settings") }
+gradle.beforeProject { project ->
+    if (project.projectDir.absolutePath.replace('\\', '/').contains('/node_modules/@react-native/gradle-plugin')) {
+        project.layout.buildDirectory.set(new File(settingsDir, ".gradle/react-native-gradle-plugin-build/${project.name}"))
+    }
+}
+
 extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
 rootProject.name = 'A1Property'
 include ':app'

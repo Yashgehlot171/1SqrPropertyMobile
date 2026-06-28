@@ -1,6 +1,9 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
+
+layout.buildDirectory.set(file("C:/a1property-app-build"))
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -103,6 +106,12 @@ android {
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            buildStagingDirectory file("C:/a1property-cxx")
         }
     }
 }

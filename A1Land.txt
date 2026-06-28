@@ -1,0 +1,1571 @@
+# A1Lnad Mobile App - Complete React Native Development Prompt
+
+Project Name:
+A1Lnad
+
+Project Type:
+React Native Mobile Application
+
+Platform:
+Android + iOS
+
+Development Mode:
+Frontend UI/UX and complete static workflow first.
+Do not integrate real APIs now.
+Use static mock data/local state for now.
+After complete design and frontend workflow is completed, APIs will be integrated later.
+
+Main Objective:
+Create a complete production-ready React Native mobile app for UrbanKart using static data. The app should include full workflow for Buyer, Seller, Broker, Property Search, Add/Edit/Delete/View Property, Saved Properties, Portfolio, Lead Management, Construction Services, House Development Quotation Calculator, Loan Calculator, Legal Department, Property Verification, Property Registration, Support System, Notifications, Profile, Status Update, Remarks, and Document Upload UI.
+
+Important Instruction:
+Build the complete mobile app UI and workflow using static data only.
+All Add, Edit, Delete, View, Status Update, Remark, Upload, Save, Filter, Search actions should work locally using state management.
+Create API-ready service files so real APIs can be integrated later.
+Do not skip any module.
+Do not hardcode repeated UI. Use reusable components.
+Keep code clean, scalable, and production-ready.
+
+Tech Stack:
+- React Native
+- TypeScript
+- React Navigation
+- Stack Navigation
+- Bottom Tab Navigation
+- Redux Toolkit or Zustand for local state management
+- React Hook Form
+- Yup or Zod validation
+- Axios setup for future API integration
+- AsyncStorage for login/session/user role/profile storage
+- Vector icons
+- Safe Area View
+- Keyboard Avoiding View
+- Reusable components
+- Static mock data
+- API-ready folder structure
+
+Design System:
+Use modern real estate app design inspired by Material Design 3.
+
+Colors:
+Primary: #1A0533
+Secondary: #6C3BFF
+Accent: #FFB800
+Success: #22C55E
+Error: #EF4444
+Warning: #F59E0B
+Background: #F8FAFC
+Card Background: #FFFFFF
+Text Primary: #111827
+Text Secondary: #6B7280
+Border: #E5E7EB
+Muted: #F3F4F6
+
+Typography:
+Use Inter or Poppins style typography.
+If custom font setup is not available, use system fonts but create typography constants.
+
+UI Style:
+- Clean modern mobile UI
+- Rounded cards
+- Premium dark purple branding
+- Good spacing
+- Soft shadows
+- Clear CTA buttons
+- Status chips
+- Property badges
+- Bottom sheets
+- Empty states
+- Confirmation dialogs
+- Loading states
+- Toast messages
+- Mobile-first responsive layout
+
+Suggested Folder Structure:
+
+src/
+  assets/
+    images/
+    icons/
+
+  components/
+    AppButton/
+    AppInput/
+    AppHeader/
+    SearchBar/
+    PropertyCard/
+    LeadCard/
+    ServiceCard/
+    StatusChip/
+    EmptyState/
+    UploadBox/
+    ConfirmationModal/
+    SectionHeader/
+    BottomSheet/
+    CalculatorCard/
+    DocumentCard/
+    RemarkCard/
+    StatCard/
+    CategoryCard/
+    BannerCard/
+
+  constants/
+    colors.ts
+    typography.ts
+    spacing.ts
+    routes.ts
+    appConstants.ts
+
+  data/
+    mockUsers.ts
+    mockProperties.ts
+    mockLeads.ts
+    mockConstruction.ts
+    mockLoans.ts
+    mockLegal.ts
+    mockSupport.ts
+    mockNotifications.ts
+
+  navigation/
+    RootNavigator.tsx
+    AuthNavigator.tsx
+    MainTabNavigator.tsx
+    HomeStack.tsx
+    SavedStack.tsx
+    AddPropertyStack.tsx
+    PortfolioStack.tsx
+    ServicesStack.tsx
+    ProfileStack.tsx
+
+  screens/
+    auth/
+      SplashScreen.tsx
+      LoginScreen.tsx
+      OtpVerificationScreen.tsx
+      RoleSelectionScreen.tsx
+      CompleteProfileScreen.tsx
+
+    home/
+      HomeDashboardScreen.tsx
+
+    property/
+      PropertyListingScreen.tsx
+      PropertyDetailScreen.tsx
+      PropertyGalleryScreen.tsx
+      PropertyFilterScreen.tsx
+
+    saved/
+      SavedPropertiesScreen.tsx
+
+    addProperty/
+      AddPropertyBasicScreen.tsx
+      AddPropertyLocationScreen.tsx
+      AddPropertyDetailsScreen.tsx
+      UploadPropertyMediaScreen.tsx
+      PropertyPreviewScreen.tsx
+      EditPropertyScreen.tsx
+
+    portfolio/
+      PortfolioDashboardScreen.tsx
+      MyPropertiesScreen.tsx
+      SellingPropertiesScreen.tsx
+
+    leads/
+      LeadListScreen.tsx
+      LeadDetailScreen.tsx
+
+    construction/
+      ConstructionDashboardScreen.tsx
+      HouseConstructionPackageScreen.tsx
+      ConstructionCalculatorScreen.tsx
+      QuotationResultScreen.tsx
+      MaterialInformationScreen.tsx
+      SupplierDirectoryScreen.tsx
+      ContractorDirectoryScreen.tsx
+
+    finance/
+      LoanCalculatorScreen.tsx
+      EmiResultScreen.tsx
+      LoanMarketplaceScreen.tsx
+      LoanApplicationScreen.tsx
+      LoanRequestTrackingScreen.tsx
+      FinanceTeamDetailScreen.tsx
+
+    legal/
+      LegalServicesDashboardScreen.tsx
+      PropertyVerificationRequestScreen.tsx
+      PropertyRegistrationRequestScreen.tsx
+      LegalRequestTrackingScreen.tsx
+      LegalTeamDetailScreen.tsx
+
+    support/
+      SupportDashboardScreen.tsx
+      CreateSupportTicketScreen.tsx
+      SupportTicketListScreen.tsx
+      SupportTicketDetailScreen.tsx
+
+    notifications/
+      NotificationsScreen.tsx
+
+    profile/
+      ProfileScreen.tsx
+      EditProfileScreen.tsx
+      SettingsScreen.tsx
+
+  services/
+    apiClient.ts
+    authApi.ts
+    propertyApi.ts
+    leadApi.ts
+    constructionApi.ts
+    loanApi.ts
+    legalApi.ts
+    supportApi.ts
+    notificationApi.ts
+
+  store/
+    authStore.ts
+    propertyStore.ts
+    leadStore.ts
+    savedStore.ts
+    constructionStore.ts
+    loanStore.ts
+    legalStore.ts
+    supportStore.ts
+    notificationStore.ts
+
+  types/
+    auth.types.ts
+    property.types.ts
+    lead.types.ts
+    construction.types.ts
+    loan.types.ts
+    legal.types.ts
+    support.types.ts
+    common.types.ts
+
+  utils/
+    validators.ts
+    formatCurrency.ts
+    emiCalculator.ts
+    constructionCalculator.ts
+    dateUtils.ts
+    toast.ts
+
+Authentication Workflow:
+
+1. Splash Screen
+UI:
+- Full screen background with #1A0533
+- UrbanKart logo text
+- Tagline: Buy • Sell • Build • Verify
+- Loading indicator
+
+Action:
+- If user is logged in, go to Main App.
+- If user is not logged in, go to Login after 2 seconds.
+
+2. Login Screen
+UI:
+- Header: Welcome Back
+- Subtitle: Login to continue with UrbanKart
+- Mobile Number input
+- Send OTP button
+- Continue as role chips:
+  Buyer
+  Seller
+  Broker
+
+Validation:
+- Mobile number required
+- Must be 10 digits
+
+Action:
+- Send OTP navigates to OTP Verification Screen.
+
+3. OTP Verification Screen
+UI:
+- Header: Verify OTP
+- 6 digit OTP input
+- Verify OTP button
+- Resend OTP button
+
+Static OTP:
+Use 123456 for testing.
+
+Action:
+- Verify OTP navigates to Role Selection Screen.
+
+4. Role Selection Screen
+Cards:
+- Buyer
+- Seller
+- Broker
+
+Each card:
+- Icon
+- Title
+- Description
+- Selected state
+
+Action:
+- Save selected role in local state and AsyncStorage.
+- Navigate to Complete Profile Screen.
+
+5. Complete Profile Screen
+Fields:
+- Name
+- Email
+- City
+- Profile Image placeholder
+
+Button:
+- Save Profile
+
+Action:
+- Save user profile locally.
+- Navigate to Main App.
+
+Main Bottom Navigation:
+
+Use 5 bottom tabs:
+1. Home
+2. Saved
+3. Add Property
+4. Services
+5. Profile
+
+Portfolio should be accessible from Profile and Seller/Broker dashboard shortcuts.
+
+Role Based Workflow:
+
+Buyer:
+- Search properties
+- Filter properties
+- View property details
+- Save property
+- Mark interested
+- Contact owner/broker
+- Book site visit
+- Apply loan
+- Request legal verification
+- Create support ticket
+
+Seller:
+- Add property
+- Edit property
+- Delete property
+- View own property list
+- Manage property status
+- View leads
+- Add lead remarks
+- Update lead status
+- Track portfolio
+
+Broker:
+- Add multiple properties
+- Edit properties
+- Delete properties
+- Manage leads
+- Add remarks
+- Update lead status
+- Track follow-ups
+- Track interested buyers
+
+Home Dashboard Screen:
+
+Header:
+- Current Location
+- Notification Icon
+- User greeting based on role
+
+Search:
+- Search Property input
+
+Top Tabs:
+- All
+- New Launches
+- Owner
+- Ready To Move
+- Verified
+
+Categories Grid:
+- Plot
+- House
+- Flat
+- Agriculture Land
+- Commercial Plot
+- Commercial House
+- Shop
+- Office
+- Warehouse
+
+Sections:
+- Featured Properties horizontal cards
+- Latest Properties vertical cards
+- Construction Services banner
+- Legal Verification banner
+- Loan Calculator banner
+
+Actions:
+- Search navigates to Property Listing
+- Category click filters property list
+- Notification icon navigates to Notifications
+- Property card opens Property Detail
+
+Property Listing Screen:
+
+UI:
+- Header with back button
+- Search input
+- Filter button
+- Property list
+
+Property Card:
+- Property image
+- Title
+- Location
+- Price
+- Area
+- Property type
+- Owner/Broker badge
+- Verified badge
+- Ready To Move badge
+- Save icon
+- Share icon
+- Call button
+- WhatsApp button
+
+Actions:
+- View details
+- Save/unsave property
+- Call
+- WhatsApp
+- Share
+- Apply filters
+
+Property Filter Bottom Sheet:
+
+Fields:
+- Price Range
+- Area Range
+- Property Type dropdown
+- BHK Type dropdown
+- Facing dropdown
+- Location dropdown
+- Ready To Move toggle
+- Verified Only toggle
+- Owner Only toggle
+
+Buttons:
+- Apply Filter
+- Reset Filter
+
+Property Detail Screen:
+
+Sections:
+1. Property image slider
+2. Property basic info:
+   - Price
+   - Location
+   - Property Type
+   - Area
+   - Facing
+   - Road Width
+   - BHK
+   - Furnishing
+   - Construction Year
+   - Ready To Move
+3. Description
+4. Amenities
+5. Google Map placeholder
+6. Owner/Broker Profile
+7. Similar Properties
+
+Actions:
+- Call
+- WhatsApp
+- Book Site Visit
+- Apply Loan
+- Request Legal Verification
+- Save Property
+- Share Property
+
+Property Gallery Screen:
+- Full screen image viewer
+- Swipe images
+- Share
+- Download placeholder
+
+Saved Properties Screen:
+
+Tabs:
+- Favourite
+- Interested
+- Contacted
+- Recently Viewed
+
+Actions:
+- View property
+- Remove from saved
+- Mark interested
+- Mark contacted
+- Clear recently viewed
+
+Add Property Workflow:
+
+Use multi-step form.
+
+Step 1: Basic Details
+Fields:
+- Property Type
+- Sell/Rent
+- Title
+- Description
+- Price
+- Area
+
+Buttons:
+- Save Draft
+- Next
+
+Step 2: Location
+Fields:
+- State
+- District
+- City
+- Area
+- Address
+- Pincode
+- Google Location Picker placeholder
+
+Buttons:
+- Back
+- Save Draft
+- Next
+
+Step 3: Property Details
+Fields:
+- BHK
+- Facing
+- Road Width
+- Furnishing
+- Ready To Move
+- Construction Year
+- Floor Number
+- Total Floors
+
+Buttons:
+- Back
+- Save Draft
+- Next
+
+Step 4: Media and Documents
+Upload:
+- Photos
+- Videos
+- Registry document
+- Sale deed
+- Other documents
+
+Actions:
+- Upload file
+- View file
+- Replace file
+- Delete file
+
+Buttons:
+- Back
+- Preview
+
+Step 5: Preview
+Show all entered data in preview mode.
+
+Actions:
+- Edit section
+- Submit Property
+
+After Submit:
+- Add property into local property list
+- Show success toast
+- Navigate to My Properties or Portfolio
+
+Property CRUD Requirements:
+
+Property module must support:
+- Add Property
+- View Property
+- Edit Property
+- Delete Property
+- Save Draft
+- Submit Property
+- Mark as Active
+- Mark as Sold
+- Mark as Pending
+- Mark as Rejected
+- View Property Preview
+- Upload documents
+- View documents
+- Replace documents
+- Delete documents
+- Upload images
+- View images
+- Delete images
+
+My Properties Screen:
+
+Tabs:
+- Active
+- Pending
+- Sold
+- Rejected
+- Draft
+
+Each property card:
+- View
+- Edit
+- Delete
+- Change Status
+- View Leads
+
+Edit Property Screen:
+Use same form as Add Property but pre-filled with existing local data.
+
+Actions:
+- Update Property
+- Cancel
+- Delete
+
+Delete Confirmation:
+Before every delete action show confirmation modal:
+Title: Are you sure?
+Message: This action cannot be undone.
+Buttons:
+- Cancel
+- Delete
+
+Portfolio Dashboard:
+
+Stats Cards:
+- Active Properties
+- Sold Properties
+- Pending Properties
+- Total Leads
+- Interested Buyers
+- Site Visits
+
+Sections:
+- My Properties
+- Recent Leads
+- Follow-ups
+- Performance Summary
+
+Lead Management Workflow:
+
+Lead List Screen:
+Tabs:
+- New
+- Contacted
+- Interested
+- Site Visit
+- Negotiation
+- Closed
+- Lost
+
+Lead Card:
+- Buyer Name
+- Property Name
+- Mobile
+- Status
+- Last Remark
+- Follow-up Date
+
+Actions:
+- View
+- Call
+- WhatsApp
+- Update Status
+
+Lead Detail Screen:
+
+Sections:
+- Buyer Information
+- Property Information
+- Lead Status
+- Remarks
+- Follow-up Date
+- Activity History
+
+Actions:
+- Call
+- WhatsApp
+- Add Remark
+- Edit Remark
+- Delete Remark
+- Update Status
+- Add Follow-up Date
+- Close Lead
+
+Lead CRUD:
+- View lead list
+- View lead detail
+- Add lead remark
+- Edit lead remark
+- Delete lead remark
+- Update lead status
+- Add follow-up date
+- Update follow-up date
+- Close/delete lead locally
+
+Lead Status:
+- New
+- Contacted
+- Interested
+- Site Visit
+- Negotiation
+- Closed
+- Lost
+
+Services Dashboard:
+
+Show service cards:
+- Construction Services
+- House Construction
+- Quotation Calculator
+- Material Suppliers
+- Contractors
+- Architects
+- Interior Designers
+- Loan Calculator
+- Loan Marketplace
+- Legal Services
+- Property Verification
+- Property Registration
+- Support
+
+Construction Dashboard:
+
+Services:
+- House Construction
+- Quotation Calculator
+- Material Suppliers
+- Contractors
+- Architects
+- Interior Designers
+
+House Construction Package Screen:
+
+Package Cards:
+- Basic
+- Standard
+- Premium
+- Luxury
+
+Each package includes:
+- Cost per sq ft
+- Material quality
+- Labour included
+- Timeline
+- Features
+
+Actions:
+- View Details
+- Request Quote
+
+Construction Cost Calculator:
+
+Inputs:
+- Plot Size
+- Built-up Area
+- Number of Floors
+- Construction Quality
+
+Buttons:
+- Calculate
+- Reset
+
+Formula:
+- Basic: 1400 per sq ft
+- Standard: 1700 per sq ft
+- Premium: 2200 per sq ft
+- Luxury: 3000 per sq ft
+
+Result:
+- Material Cost
+- Labour Cost
+- Total Cost
+- Estimated Timeline
+
+Actions:
+- Save Quote
+- Request Final Quote
+- Delete Quote
+
+Quotation Result Screen:
+- Show calculated amount
+- Show breakdown
+- Show timeline
+
+Actions:
+- Request Final Quote
+- Save Result
+- Recalculate
+
+Construction Request CRUD:
+- Add construction request
+- Edit construction request
+- Delete construction request
+- View construction request details
+- Save quote
+- Delete quote
+- Request final quote
+
+Material Information Screen:
+
+Categories:
+- Cement
+- Steel
+- Paint
+- Tiles
+- Electrical
+- Plumbing
+
+Show:
+- Brand
+- Specification
+- Rating
+- Price range
+
+Actions:
+- View details
+- Save material
+
+Supplier Directory:
+
+Supplier Card:
+- Supplier Name
+- Location
+- Rating
+- Phone
+- WhatsApp
+
+Actions:
+- View
+- Call
+- WhatsApp
+- Save Supplier
+- Remove Supplier
+
+Contractor Directory:
+
+Contractor Card:
+- Contractor Name
+- Experience
+- Projects
+- Rating
+- Contact
+
+Actions:
+- View
+- Call
+- WhatsApp
+- Save Contractor
+- Remove Contractor
+
+Finance Module:
+
+Loan Calculator Screen:
+
+Inputs:
+- Loan Amount
+- Interest Rate
+- Tenure
+- Down Payment
+
+Button:
+- Calculate EMI
+
+Formula:
+EMI = P * R * (1+R)^N / ((1+R)^N - 1)
+
+Result:
+- Monthly EMI
+- Interest Amount
+- Total Payable
+
+Actions:
+- Apply Loan
+- Save EMI Result
+- Delete EMI Result
+- Request Callback
+
+Loan Marketplace Screen:
+
+Banks:
+- SBI
+- HDFC
+- ICICI
+- Axis
+- PNB
+
+Show:
+- Interest Rate
+- Processing Fee
+- Eligibility
+- Apply Button
+
+Loan Application Screen:
+
+Fields:
+- Applicant Name
+- Mobile
+- Email
+- Monthly Income
+- Employment Type
+- Loan Amount
+- Property Details
+- Documents Upload
+
+Actions:
+- Submit Loan Request
+- Save Draft
+
+Loan Request Tracking:
+
+Tabs:
+- New
+- In Review
+- Document Required
+- Processing
+- Approved
+- Rejected
+- Disbursed
+
+Actions:
+- View Details
+- Edit Request
+- Delete Request
+- Upload Documents
+- Add Remark
+- View Status History
+
+Finance Team Detail Screen:
+
+Sections:
+- Applicant Details
+- Loan Details
+- Uploaded Documents
+- Remarks
+- Status History
+
+Actions:
+- Add Remark
+- Edit Remark
+- Delete Remark
+- Update Status
+
+Loan CRUD:
+- Add loan request
+- Edit loan request
+- Delete loan request
+- View loan request
+- Upload document
+- View document
+- Replace document
+- Delete document
+- Track status
+- Add remark
+- Edit remark
+- Delete remark
+
+Legal Services Dashboard:
+
+Services:
+- Property Verification
+- Title Search
+- Ownership Verification
+- Property Registration
+- Legal Opinion
+
+Property Verification Request:
+
+Fields:
+- Property Details
+- Owner Details
+- Location
+
+Upload Documents:
+- Registry
+- Sale Deed
+- Khasra
+- Khatauni
+- Tax Receipt
+
+Actions:
+- Upload document
+- View document
+- Replace document
+- Delete document
+- Submit Request
+
+Property Registration Request:
+
+Fields:
+- Property Details
+- Owner Details
+- Buyer Details
+- Location
+- Registration Date Preference
+
+Documents:
+- Registry
+- Sale Deed
+- ID Proof
+- Address Proof
+
+Actions:
+- Submit Request
+- Save Draft
+
+Legal Request Tracking Screen:
+
+Timeline:
+- Submitted
+- Under Review
+- Document Required
+- Verified
+- Rejected
+- Completed
+
+Sections:
+- Request Details
+- Documents
+- Remarks
+- Status History
+
+Actions:
+- View
+- Edit
+- Delete
+- Upload More Documents
+
+Legal Team Detail Screen:
+
+Sections:
+- Request Details
+- Property Details
+- Owner Details
+- Uploaded Documents
+- Remarks
+- Status History
+
+Actions:
+- Add Remark
+- Edit Remark
+- Delete Remark
+- Update Status
+
+Legal CRUD:
+- Add legal request
+- Edit legal request
+- Delete legal request
+- View legal request
+- Upload document
+- View document
+- Replace document
+- Delete document
+- Add remark
+- Edit remark
+- Delete remark
+- Update status locally
+
+Legal Status:
+- Submitted
+- Under Review
+- Document Required
+- Verified
+- Rejected
+- Completed
+
+Support Module:
+
+Support Dashboard:
+- Create Ticket
+- My Tickets
+- FAQ
+- Contact Support
+
+Create Support Ticket:
+
+Fields:
+- Issue Type
+- Related Property
+- Subject
+- Description
+- Upload Image/File
+
+Actions:
+- Submit Ticket
+
+Support Ticket List:
+
+Tabs:
+- Open
+- In Progress
+- Waiting for User
+- Resolved
+- Closed
+
+Actions:
+- View
+- Edit
+- Close
+- Delete
+
+Support Ticket Detail:
+
+Sections:
+- Issue Details
+- User Details
+- Property Details
+- Remarks
+- Status History
+
+Actions:
+- Add Remark
+- Edit Remark
+- Delete Remark
+- Update Status
+- Close Ticket
+
+Support CRUD:
+- Add support ticket
+- Edit support ticket
+- Delete support ticket
+- View ticket
+- Add remark
+- Edit remark
+- Delete remark
+- Update ticket status
+
+Notifications Screen:
+
+Categories:
+- Properties
+- Legal
+- Loans
+- Construction
+- Offers
+
+Actions:
+- View notification
+- Mark as read
+- Mark all as read
+- Delete notification
+- Filter notifications
+
+Profile Screen:
+
+User Information:
+- Photo
+- Name
+- Mobile
+- Email
+- City
+- Role
+
+Menu:
+- My Properties
+- Saved Properties
+- Leads
+- Loan Requests
+- Legal Requests
+- Construction Requests
+- Notifications
+- Help & Support
+- Settings
+- Logout
+
+Edit Profile Screen:
+
+Fields:
+- Name
+- Email
+- City
+- Profile Image
+
+Actions:
+- Update Profile
+- Cancel
+
+Profile CRUD:
+- View profile
+- Edit profile
+- Update profile image
+- Logout
+- Delete account option
+
+Common CRUD Rules:
+
+Every main listing screen must support applicable actions:
+- View
+- Add
+- Edit
+- Delete
+- Search
+- Filter
+- Status Update
+- Remarks
+
+Every details screen must support:
+- Back
+- View Details
+- Edit
+- Delete
+- Add Remark
+- Update Status
+- View Status History
+according to module requirement.
+
+Document Upload Rules:
+
+For all modules with documents:
+- Upload file
+- View file
+- Replace file
+- Delete file
+- Show file name
+- Show upload status
+
+Supported file types:
+- PDF
+- JPG
+- PNG
+
+Static Data Requirements:
+
+Create realistic Indian mock data for:
+- 10 properties
+- 5 users
+- 5 sellers
+- 5 brokers
+- 10 leads
+- 5 construction packages
+- 5 suppliers
+- 5 contractors
+- 5 material brands
+- 5 loan banks
+- 5 loan requests
+- 5 legal requests
+- 5 support tickets
+- 15 notifications
+
+Property Types:
+- Plot
+- House
+- Flat
+- Agriculture Land
+- Commercial Plot
+- Commercial House
+- Shop
+- Office
+- Warehouse
+
+BHK Options:
+- 1 BHK
+- 2 BHK
+- 3 BHK
+- 4 BHK
+- 5+ BHK
+
+Facing Options:
+- East
+- West
+- North
+- South
+- North-East
+- North-West
+- South-East
+- South-West
+
+Ready To Move Options:
+- Ready To Move
+- Under Construction
+- New Launch
+- Resale
+
+Status Chip Component:
+
+Create reusable StatusChip for:
+
+Property:
+- Active
+- Pending
+- Sold
+- Rejected
+- Draft
+
+Lead:
+- New
+- Contacted
+- Interested
+- Site Visit
+- Negotiation
+- Closed
+- Lost
+
+Legal:
+- Submitted
+- Under Review
+- Document Required
+- Verified
+- Rejected
+- Completed
+
+Loan:
+- New
+- In Review
+- Document Required
+- Processing
+- Approved
+- Rejected
+- Disbursed
+
+Support:
+- Open
+- In Progress
+- Waiting for User
+- Resolved
+- Closed
+
+Reusable Components:
+
+AppButton:
+- Primary
+- Secondary
+- Outlined
+- Danger
+- Disabled
+
+AppInput:
+- Text
+- Mobile
+- Email
+- Number
+- Dropdown
+- Search
+- OTP
+- Multiline
+
+PropertyCard:
+- Image
+- Title
+- Location
+- Price
+- Area
+- Badges
+- Actions
+
+LeadCard:
+- Buyer Name
+- Property Name
+- Status
+- Remark
+- Follow-up Date
+
+ServiceCard:
+- Icon
+- Title
+- Description
+- Action
+
+DocumentCard:
+- File Name
+- File Type
+- Upload Status
+- View
+- Replace
+- Delete
+
+RemarkCard:
+- Remark Text
+- Added By
+- Date
+- Edit
+- Delete
+
+ConfirmationModal:
+- Title
+- Message
+- Cancel
+- Confirm
+
+EmptyState:
+- Icon
+- Title
+- Description
+- Action Button
+
+Important Local Functionality:
+
+Since APIs are not integrated:
+- All Add/Edit/Delete/View must work using local state.
+- Use mock data as initial data.
+- When user adds a new property/request/ticket, add it in local state.
+- When user edits, update local state.
+- When user deletes, remove from local state after confirmation.
+- When user updates status, update local state.
+- When user adds remark, append to remark list.
+- Do not reset data until app reload unless using AsyncStorage.
+- Use AsyncStorage for login role/profile if possible.
+
+API Ready Requirement:
+
+Create service functions but use mock/local implementation for now:
+- getProperties()
+- addProperty()
+- updateProperty()
+- deleteProperty()
+- getLeads()
+- updateLeadStatus()
+- addLeadRemark()
+- getLegalRequests()
+- addLegalRequest()
+- updateLegalRequest()
+- deleteLegalRequest()
+- getLoanRequests()
+- addLoanRequest()
+- updateLoanRequest()
+- deleteLoanRequest()
+- getSupportTickets()
+- addSupportTicket()
+- updateSupportTicket()
+- deleteSupportTicket()
+- getNotifications()
+- markNotificationRead()
+- deleteNotification()
+
+Add comments in service files:
+Currently using static/local data. Replace this with real API call after backend integration.
+
+Validation:
+
+Use form validation for:
+- Mobile number
+- Email
+- Required fields
+- Price must be number
+- Area must be number
+- Pincode must be 6 digit
+- Loan amount must be number
+- Interest rate must be number
+- Tenure must be number
+
+UX Requirements:
+- Show loading state on submit buttons
+- Show success toast after add/update/delete
+- Show error toast for validation failure
+- Show empty state when list is empty
+- Use confirmation modal before delete
+- Use keyboard avoiding view for forms
+- Use safe area view
+- Use scroll view for long forms
+- Use proper spacing and responsive layout
+
+Calculators:
+
+EMI Calculator:
+Inputs:
+- Principal Loan Amount
+- Annual Interest Rate
+- Tenure in months or years
+- Down Payment
+
+Formula:
+Monthly Rate = Annual Interest Rate / 12 / 100
+EMI = P * R * (1 + R)^N / ((1 + R)^N - 1)
+
+Output:
+- Monthly EMI
+- Total Interest
+- Total Payable
+
+Construction Calculator:
+Inputs:
+- Built-up Area
+- Number of Floors
+- Construction Quality
+
+Rates:
+- Basic: 1400 per sq ft
+- Standard: 1700 per sq ft
+- Premium: 2200 per sq ft
+- Luxury: 3000 per sq ft
+
+Output:
+- Material Cost
+- Labour Cost
+- Total Cost
+- Estimated Timeline
+
+Final Deliverables:
+1. Complete React Native TypeScript project
+2. Complete navigation flow
+3. Complete static data workflow
+4. Complete CRUD for all major modules
+5. Reusable components
+6. Role-based screens
+7. Property search and filter
+8. Add/Edit/Delete/View property workflow
+9. Lead management
+10. Construction calculator
+11. Loan calculator
+12. Legal verification and registration workflow
+13. Support ticket workflow
+14. Notifications
+15. Profile management
+16. Status update and remarks
+17. Document upload UI
+18. API-ready service layer
+19. README file
+
+README Must Include:
+- Project overview
+- Tech stack
+- Installation command
+- Run Android command
+- Run iOS command
+- Folder structure explanation
+- Static data explanation
+- How to integrate real API later
+- Completed modules list
+
+Build Order:
+1. Project setup
+2. Theme constants
+3. Types
+4. Mock data
+5. Reusable components
+6. Navigation
+7. Auth flow
+8. Home flow
+9. Property listing/detail/filter
+10. Add/Edit/Delete property
+11. Saved properties
+12. Portfolio dashboard
+13. Lead management
+14. Services dashboard
+15. Construction module
+16. Finance module
+17. Legal module
+18. Support module
+19. Notifications
+20. Profile
+21. Final polish
+22. README
+
+Final Instruction:
+Do not skip any screen or workflow.
+If code becomes large, build module by module.
+Keep navigation connected from the beginning.
+Use static data now but keep everything API-ready.

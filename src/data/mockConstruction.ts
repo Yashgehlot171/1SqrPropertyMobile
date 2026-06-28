@@ -1,0 +1,233 @@
+import type {
+  ConstructionPackage,
+  ConstructionQuote,
+  ConstructionRequest,
+  DirectoryEntry,
+  MaterialBrand,
+} from '@/types';
+
+export const mockConstructionPackages: ConstructionPackage[] = [
+  {
+    id: 'package-1',
+    name: 'Basic',
+    costPerSqFt: 1400,
+    materialQuality: 'Reliable standard materials',
+    labourIncluded: true,
+    timeline: '6-8 months',
+    features: ['Standard fittings', 'Basic tiles', 'Conventional wiring'],
+  },
+  {
+    id: 'package-2',
+    name: 'Standard',
+    costPerSqFt: 1700,
+    materialQuality: 'Branded structural materials',
+    labourIncluded: true,
+    timeline: '8-10 months',
+    features: ['Branded sanitaryware', 'Anti-skid tiles', 'False ceiling'],
+  },
+  {
+    id: 'package-3',
+    name: 'Premium',
+    costPerSqFt: 2200,
+    materialQuality: 'High-grade branded materials',
+    labourIncluded: true,
+    timeline: '10-12 months',
+    features: ['Premium tiles', 'UPVC windows', 'Designer lighting'],
+  },
+  {
+    id: 'package-4',
+    name: 'Luxury',
+    costPerSqFt: 3000,
+    materialQuality: 'Luxury imported finishes',
+    labourIncluded: true,
+    timeline: '12-15 months',
+    features: ['Italian marble', 'Smart home points', 'Premium facade'],
+  },
+  {
+    id: 'package-5',
+    name: 'Ultra Luxury',
+    costPerSqFt: 3800,
+    materialQuality: 'Custom curated architectural finish',
+    labourIncluded: true,
+    timeline: '15-18 months',
+    features: ['Architect supervision', 'Custom interiors', 'Landscape package'],
+  },
+];
+
+export const mockSuppliers: DirectoryEntry[] = [
+  {
+    id: 'supplier-1',
+    name: 'Shree Cement Depot',
+    location: 'Lucknow',
+    rating: 4.5,
+    phone: '9839000011',
+    whatsapp: '9839000011',
+    tags: ['Cement', 'Bulk Supply'],
+  },
+  {
+    id: 'supplier-2',
+    name: 'North Steel Mart',
+    location: 'Kanpur',
+    rating: 4.3,
+    phone: '9839000012',
+    whatsapp: '9839000012',
+    tags: ['Steel', 'Industrial Supply'],
+  },
+  {
+    id: 'supplier-3',
+    name: 'Modern Paint House',
+    location: 'Noida',
+    rating: 4.6,
+    phone: '9839000013',
+    whatsapp: '9839000013',
+    tags: ['Paint', 'Finishes'],
+  },
+  {
+    id: 'supplier-4',
+    name: 'Tile Corner',
+    location: 'Ghaziabad',
+    rating: 4.1,
+    phone: '9839000014',
+    whatsapp: '9839000014',
+    tags: ['Tiles', 'Bathroom'],
+  },
+  {
+    id: 'supplier-5',
+    name: 'Prime Electrical Traders',
+    location: 'Varanasi',
+    rating: 4.4,
+    phone: '9839000015',
+    whatsapp: '9839000015',
+    tags: ['Electrical', 'Plumbing'],
+  },
+];
+
+export const mockContractors: DirectoryEntry[] = [
+  {
+    id: 'contractor-1',
+    name: 'BuildRight Constructions',
+    location: 'Lucknow',
+    rating: 4.7,
+    phone: '9845000011',
+    whatsapp: '9845000011',
+    tags: ['12 years', '32 projects'],
+  },
+  {
+    id: 'contractor-2',
+    name: 'UrbanCraft Infra',
+    location: 'Noida',
+    rating: 4.4,
+    phone: '9845000012',
+    whatsapp: '9845000012',
+    tags: ['9 years', '22 projects'],
+  },
+  {
+    id: 'contractor-3',
+    name: 'Reliable Homes',
+    location: 'Kanpur',
+    rating: 4.2,
+    phone: '9845000013',
+    whatsapp: '9845000013',
+    tags: ['7 years', '18 projects'],
+  },
+  {
+    id: 'contractor-4',
+    name: 'Vertex Buildspace',
+    location: 'Ghaziabad',
+    rating: 4.6,
+    phone: '9845000014',
+    whatsapp: '9845000014',
+    tags: ['11 years', '27 projects'],
+  },
+  {
+    id: 'contractor-5',
+    name: 'Nirman Studios',
+    location: 'Varanasi',
+    rating: 4.3,
+    phone: '9845000015',
+    whatsapp: '9845000015',
+    tags: ['8 years', '20 projects'],
+  },
+];
+
+export const mockMaterialBrands: MaterialBrand[] = [
+  {
+    id: 'material-1',
+    category: 'Cement',
+    brand: 'UltraTech',
+    specification: 'OPC 53 Grade',
+    rating: 4.8,
+    priceRange: 'Rs. 410-450 per bag',
+  },
+  {
+    id: 'material-2',
+    category: 'Steel',
+    brand: 'Tata Tiscon',
+    specification: 'TMT 550 SD',
+    rating: 4.7,
+    priceRange: 'Rs. 58,000-64,000 per ton',
+  },
+  {
+    id: 'material-3',
+    category: 'Paint',
+    brand: 'Asian Paints',
+    specification: 'Interior Emulsion Premium',
+    rating: 4.6,
+    priceRange: 'Rs. 280-450 per litre',
+  },
+  {
+    id: 'material-4',
+    category: 'Tiles',
+    brand: 'Kajaria',
+    specification: '600x600 vitrified',
+    rating: 4.5,
+    priceRange: 'Rs. 55-120 per sq ft',
+  },
+  {
+    id: 'material-5',
+    category: 'Electrical',
+    brand: 'Havells',
+    specification: 'Switches and wiring',
+    rating: 4.4,
+    priceRange: 'Rs. 4,000-12,000 per room set',
+  },
+];
+
+export const mockConstructionQuotes: ConstructionQuote[] = [
+  {
+    id: 'quote-1',
+    plotSizeSqFt: 1200,
+    builtUpAreaSqFt: 1200,
+    floors: 2,
+    quality: 'Standard',
+    materialCost: 2652000,
+    labourCost: 1428000,
+    totalCost: 4080000,
+    estimatedTimelineMonths: 8,
+    createdAt: '2026-05-24T10:00:00.000Z',
+  },
+];
+
+export const mockConstructionRequests: ConstructionRequest[] = [
+  {
+    id: 'construction-request-1',
+    customerName: 'Aarav Khanna',
+    mobile: '9998887776',
+    location: {
+      city: 'Lucknow',
+      state: 'Uttar Pradesh',
+      area: 'Gomti Nagar',
+    },
+    quoteId: 'quote-1',
+    documents: [],
+    remarks: [],
+    history: [
+      {
+        id: 'construction-request-history-1',
+        status: 'Submitted',
+        updatedBy: 'System',
+        updatedAt: '2026-05-24T10:00:00.000Z',
+      },
+    ],
+  },
+];
