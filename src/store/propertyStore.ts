@@ -116,6 +116,7 @@ interface PropertyStore {
   addDraftDocument: (document: UploadedDocument) => void;
   removeDraftDocument: (documentId: string) => void;
   addDraftMedia: (media: PropertyMedia) => void;
+  addDraftMediaBatch: (media: PropertyMedia[]) => void;
   removeDraftMedia: (mediaId: string) => void;
 }
 
@@ -267,6 +268,15 @@ export const usePropertyStore = create<PropertyStore>((set, get) => ({
         ? {
             ...state.editorDraft,
             media: [media, ...state.editorDraft.media],
+          }
+        : state.editorDraft,
+    })),
+  addDraftMediaBatch: media =>
+    set(state => ({
+      editorDraft: state.editorDraft
+        ? {
+            ...state.editorDraft,
+            media: [...state.editorDraft.media, ...media],
           }
         : state.editorDraft,
     })),

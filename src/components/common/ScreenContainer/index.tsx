@@ -2,6 +2,7 @@ import React from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
+  RefreshControlProps,
   ScrollView,
   StyleSheet,
   View,
@@ -14,16 +15,19 @@ import {spacing} from '@/constants/spacing';
 interface ScreenContainerProps {
   children: React.ReactNode;
   scrollable?: boolean;
+  refreshControl?: React.ReactElement<RefreshControlProps>;
 }
 
 export function ScreenContainer({
   children,
   scrollable = true,
+  refreshControl,
 }: ScreenContainerProps) {
   const content = scrollable ? (
     <ScrollView
       contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
+      refreshControl={refreshControl}
       showsVerticalScrollIndicator={false}>
       {children}
     </ScrollView>

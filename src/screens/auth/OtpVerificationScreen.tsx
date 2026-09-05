@@ -3,7 +3,6 @@ import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
 import {AppButton, AppHeader, AppInput, ScreenContainer} from '@/components';
-import {STATIC_OTP} from '@/constants/appConstants';
 import {colors} from '@/constants/colors';
 import {ROUTES} from '@/constants/routes';
 import {spacing} from '@/constants/spacing';
@@ -15,7 +14,7 @@ import type {AuthStackParamList} from '@/types';
 type Props = NativeStackScreenProps<AuthStackParamList, 'OtpVerification'>;
 
 export function OtpVerificationScreen({navigation, route}: Props) {
-  const [otp, setOtp] = useState(STATIC_OTP);
+  const [otp, setOtp] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
@@ -29,7 +28,7 @@ export function OtpVerificationScreen({navigation, route}: Props) {
       const result = await verifyOtp({mobile: route.params.mobile, otp});
 
       if (!result.verified) {
-        setErrorMessage(`Use ${STATIC_OTP} to continue.`);
+        setErrorMessage('Unable to verify OTP.');
         return;
       }
 
@@ -63,7 +62,7 @@ export function OtpVerificationScreen({navigation, route}: Props) {
     <ScreenContainer>
       <AppHeader
         title="Verify OTP"
-        subtitle={`Static OTP for testing: ${STATIC_OTP}`}
+        subtitle="Enter the OTP sent to your mobile number"
         onBackPress={navigation.goBack}
       />
       <View style={styles.card}>

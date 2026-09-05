@@ -26,7 +26,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 const loginHomeImage = require('@/assets/login_home.png');
 
 export function LoginScreen({ navigation }: Props) {
-  const [mobile, setMobile] = useState('9998887776');
+  const [mobile, setMobile] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const setPendingMobile = useAuthStore(state => state.setPendingMobile);

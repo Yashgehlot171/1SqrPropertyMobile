@@ -11,12 +11,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-import { ConfirmationModal } from '@/components';
+import { BottomSheet, ConfirmationModal } from '@/components';
 import { colors } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { generateId } from '@/services/serviceUtils';
+import {
+  MAX_PROPERTY_IMAGES,
+  usePropertyImagePicker,
+} from '@/hooks/usePropertyImagePicker';
 import { usePropertyStore } from '@/store/propertyStore';
 import type {
   AddPropertyStackParamList,
@@ -37,12 +41,6 @@ type Props = NativeStackScreenProps<
   'UploadPropertyMedia'
 >;
 
-const previewImages = [
-  require('@/assets/images/home1.jpg'),
-  require('@/assets/images/homeimage2.jpg'),
-  require('@/assets/images/homeimage3.jpg'),
-];
-
 const documentTypes: Array<{
   label: string;
   uploadLabel: string;
@@ -62,13 +60,16 @@ export function UploadPropertyMediaScreen({ navigation, route }: Props) {
   const removeDraftDocument = usePropertyStore(
     state => state.removeDraftDocument,
   );
-  const addDraftMedia = usePropertyStore(state => state.addDraftMedia);
+  const addDraftMediaBatch = usePropertyStore(
+    state => state.addDraftMediaBatch,
+  );
   const removeDraftMedia = usePropertyStore(state => state.removeDraftMedia);
   const [selectedDocument, setSelectedDocument] =
     useState<UploadedDocument | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<PropertyMedia | null>(
     null,
   );
+  const [showMediaError, setShowMediaError] = useState(false);
 
   useEffect(() => {
     if (
@@ -83,6 +84,20 @@ export function UploadPropertyMediaScreen({ navigation, route }: Props) {
     () => draft?.media.length ?? 0,
     [draft?.media.length],
   );
+
+  const handleImagesPicked = (media: PropertyMedia[]) => {
+    if (!media.length) {
+      return;
+    }
+    addDraftMediaBatch(media);
+    setShowMediaError(false);
+    showToast(
+      media.length === 1 ? 'Photo added.' : `${media.length} photos added.`,
+    );
+  };
+
+  const {isSheetVisible, openSheet, closeSheet, takePhoto, chooseFromGallery} =
+    usePropertyImagePicker(mediaCount, handleImagesPicked);
 
   if (!draft) {
     return null;
@@ -100,13 +115,14 @@ export function UploadPropertyMediaScreen({ navigation, route }: Props) {
     showToast(`${label} uploaded locally.`);
   };
 
-  const createMedia = (type: PropertyMedia['type']) => {
-    addDraftMedia({
-      id: generateId(type),
-      type,
-      uri: `placeholder://${type}-${mediaCount + 1}`,
+  const handleNext = () => {
+    if (mediaCount < 1) {
+      setShowMediaError(true);
+      return;
+    }
+    navigation.navigate(ROUTES.addProperty.propertyPreview, {
+      propertyId: route.params?.propertyId,
     });
-    showToast(`${type === 'image' ? 'Photo' : 'Video'} added locally.`);
   };
 
   return (
@@ -127,44 +143,48 @@ export function UploadPropertyMediaScreen({ navigation, route }: Props) {
         />
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Property Photos</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.photoRow}>
-              {[0, 1, 2].map(index => {
-                const media = draft.media[index];
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>
+              Property Photos<Text style={styles.required}> *</Text>
+            </Text>
+            <Text style={styles.counterText}>
+              {mediaCount} / {MAX_PROPERTY_IMAGES} photos
+            </Text>
+          </View>
 
-                return (
-                  <Pressable
-                    key={index}
-                    onPress={() =>
-                      media ? setSelectedMedia(media) : createMedia('image')
-                    }
-                    style={styles.photoTile}
-                  >
-                    <Image
-                      source={previewImages[index % previewImages.length]}
-                      style={styles.photo}
-                    />
-                    {media ? (
-                      <View style={styles.uploadedBadge}>
-                        <Icon color={colors.white} name="checkmark" size={13} />
-                      </View>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </ScrollView>
-          <Pressable
-            onPress={() => createMedia('image')}
-            style={styles.addMore}
-          >
-            <Icon color={colors.textPrimary} name="add" size={18} />
-            <Text style={styles.addMoreText}>Add More</Text>
-          </Pressable>
+          <View style={styles.photoGrid}>
+            {draft.media.map(media => (
+              <View key={media.id} style={styles.photoTile}>
+                <Image source={{ uri: media.uri }} style={styles.photo} />
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => setSelectedMedia(media)}
+                  style={styles.removeBadge}
+                >
+                  <Icon color={colors.white} name="close" size={13} />
+                </Pressable>
+              </View>
+            ))}
+
+            {mediaCount < MAX_PROPERTY_IMAGES ? (
+              <Pressable
+                onPress={openSheet}
+                style={[styles.photoTile, styles.addPhotoTile]}
+              >
+                <Icon color={colors.brandPurple} name="add" size={22} />
+                <Text style={styles.addPhotoText}>Add Photo</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
           <Text style={styles.helperText}>
-            Add at least 3 photos for better visibility
+            {mediaCount >= MAX_PROPERTY_IMAGES
+              ? 'Maximum 10 photos reached'
+              : 'Add at least 1 photo (up to 10) for better visibility'}
           </Text>
+          {showMediaError ? (
+            <Text style={styles.errorText}>At least 1 photo is required</Text>
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -200,15 +220,20 @@ export function UploadPropertyMediaScreen({ navigation, route }: Props) {
           </View>
         </View>
 
-        <PrimaryButton
-          label="Save & Next"
-          onPress={() =>
-            navigation.navigate(ROUTES.addProperty.propertyPreview, {
-              propertyId: route.params?.propertyId,
-            })
-          }
-        />
+        <PrimaryButton label="Save & Next" onPress={handleNext} />
       </ScrollView>
+
+      <BottomSheet onClose={closeSheet} visible={isSheetVisible}>
+        <Text style={styles.sheetTitle}>Add Photo</Text>
+        <Pressable onPress={takePhoto} style={styles.sheetOption}>
+          <Icon color={colors.textPrimary} name="camera-outline" size={20} />
+          <Text style={styles.sheetOptionText}>Take Photo</Text>
+        </Pressable>
+        <Pressable onPress={chooseFromGallery} style={styles.sheetOption}>
+          <Icon color={colors.textPrimary} name="images-outline" size={20} />
+          <Text style={styles.sheetOptionText}>Choose from Gallery</Text>
+        </Pressable>
+      </BottomSheet>
 
       <ConfirmationModal
         confirmLabel="Delete"
@@ -260,13 +285,27 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.sm,
   },
+  sectionHeaderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
   sectionTitle: {
     color: colors.textPrimary,
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.bold,
   },
-  photoRow: {
+  required: {
+    color: colors.error,
+  },
+  counterText: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.medium,
+  },
+  photoGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   photoTile: {
@@ -279,9 +318,9 @@ const styles = StyleSheet.create({
     height: '100%',
     width: '100%',
   },
-  uploadedBadge: {
+  removeBadge: {
     alignItems: 'center',
-    backgroundColor: colors.brandPurple,
+    backgroundColor: colors.overlayStrong,
     borderRadius: 10,
     height: 20,
     justifyContent: 'center',
@@ -290,25 +329,43 @@ const styles = StyleSheet.create({
     top: spacing.xs,
     width: 20,
   },
-  addMore: {
+  addPhotoTile: {
     alignItems: 'center',
-    alignSelf: 'flex-start',
     borderColor: colors.chipBorder,
-    borderRadius: spacing.radiusMd,
+    borderStyle: 'dashed',
     borderWidth: 1,
-    flexDirection: 'row',
     gap: spacing.xs,
-    minHeight: 38,
-    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
   },
-  addMoreText: {
-    color: colors.textPrimary,
-    fontSize: typography.fontSize.sm,
+  addPhotoText: {
+    color: colors.brandPurple,
+    fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.bold,
   },
   helperText: {
     color: colors.textSecondary,
     fontSize: typography.fontSize.xs,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: typography.fontSize.xs,
+  },
+  sheetTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.bold,
+    marginBottom: spacing.md,
+  },
+  sheetOption: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.md,
+    minHeight: 52,
+  },
+  sheetOptionText: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
   },
   documentCard: {
     backgroundColor: colors.surface,

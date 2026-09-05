@@ -1,9 +1,15 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
-apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
 
 layout.buildDirectory.set(file("C:/a1property-app-build"))
+
+// Must be applied AFTER layout.buildDirectory.set() above: fonts.gradle registers its
+// asset sourceSet eagerly using $buildDir at apply-time, while its font-copy task reads
+// $buildDir lazily inside afterEvaluate. Applying it before the buildDir override made
+// those two resolve to different directories, so copied fonts never reached the merged
+// assets (and never made it into the APK).
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
 
 /**
  * This is the configuration block to customize your React Native Android app.

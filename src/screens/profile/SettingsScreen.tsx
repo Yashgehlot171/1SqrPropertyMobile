@@ -15,6 +15,7 @@ import {spacing} from '@/constants/spacing';
 import {useAuthStore} from '@/store/authStore';
 import type {ProfileStackParamList} from '@/types';
 import {showToast} from '@/utils/toast';
+import {normalizeApiError} from '@/api';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'Settings'>;
 
@@ -24,6 +25,8 @@ export function SettingsScreen({navigation}: Props) {
   const deleteAccount = useAuthStore(state => state.deleteAccount);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   return (
     <ScreenContainer>
@@ -112,24 +115,44 @@ export function SettingsScreen({navigation}: Props) {
       </View>
       <ConfirmationModal
         confirmLabel="Logout"
-        message="Logout from the local session?"
+        message="Logout from the current session?"
         onCancel={() => setShowLogoutConfirm(false)}
         onConfirm={async () => {
+          if (isLoggingOut) {
+            return;
+          }
+
+          setIsLoggingOut(true);
           setShowLogoutConfirm(false);
-          await logout();
-          showToast('Logged out.');
+          try {
+            await logout();
+            showToast('Logged out.');
+          } finally {
+            setIsLoggingOut(false);
+          }
         }}
         title="Logout"
         visible={showLogoutConfirm}
       />
       <ConfirmationModal
         confirmLabel="Delete"
-        message="Delete this local account session and return to login?"
+        message="Delete or deactivate this account? This action cannot be undone."
         onCancel={() => setShowDeleteConfirm(false)}
         onConfirm={async () => {
+          if (isDeleting) {
+            return;
+          }
+
+          setIsDeleting(true);
           setShowDeleteConfirm(false);
-          await deleteAccount();
-          showToast('Local account deleted.');
+          try {
+            await deleteAccount();
+            showToast('Account deleted.');
+          } catch (error) {
+            showToast(normalizeApiError(error).message);
+          } finally {
+            setIsDeleting(false);
+          }
         }}
         title="Delete Account"
         visible={showDeleteConfirm}

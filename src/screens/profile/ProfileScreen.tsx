@@ -1,5 +1,13 @@
-import React from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useEffect, useRef} from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
@@ -20,23 +28,91 @@ type Props = NativeStackScreenProps<ProfileStackParamList, 'Profile'>;
 export function ProfileScreen({navigation}: Props) {
   const tabNavigation = navigation.getParent<any>();
   const user = useAuthStore(state => state.user);
+  const brokerProfile = useAuthStore(state => state.brokerProfile);
+  const isProfileLoading = useAuthStore(state => state.isProfileLoading);
+  const isBrokerProfileLoading = useAuthStore(
+    state => state.isBrokerProfileLoading,
+  );
+  const profileError = useAuthStore(state => state.profileError);
+  const refreshProfile = useAuthStore(state => state.refreshProfile);
   const properties = usePropertyStore(state => state.properties);
   const leads = useLeadStore(state => state.leads);
   const notifications = useNotificationStore(state => state.notifications);
   const favouriteIds = useSavedStore(state => state.favouriteIds);
+  const hasFetchedProfile = useRef(false);
   const initials = (user?.name ?? 'A1')
     .split(' ')
     .map(part => part[0])
     .join('')
     .slice(0, 2);
 
+  const handleRefresh = useCallback(async () => {
+    try {
+      await refreshProfile();
+    } catch {
+      // Error state is stored in Zustand and rendered below.
+    }
+  }, [refreshProfile]);
+
+  useEffect(() => {
+    if (!hasFetchedProfile.current) {
+      hasFetchedProfile.current = true;
+      handleRefresh();
+    }
+  }, [handleRefresh]);
+
+  if (isProfileLoading && !user) {
+    return (
+      <ScreenContainer scrollable={false}>
+        <View style={styles.centerState}>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={styles.stateText}>Loading profile...</Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (profileError && !user) {
+    return (
+      <ScreenContainer scrollable={false}>
+        <View style={styles.centerState}>
+          <Text style={styles.errorText}>{profileError}</Text>
+          <Pressable onPress={handleRefresh} style={styles.retryButton}>
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (!user) {
+    return (
+      <ScreenContainer scrollable={false}>
+        <View style={styles.centerState}>
+          <Text style={styles.stateText}>Profile details are not available.</Text>
+          <Pressable onPress={handleRefresh} style={styles.retryButton}>
+            <Text style={styles.retryText}>Refresh</Text>
+          </Pressable>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
   return (
-    <ScreenContainer>
+    <ScreenContainer
+      refreshControl={
+        <RefreshControl refreshing={isProfileLoading} onRefresh={handleRefresh} />
+      }>
+      {profileError ? <Text style={styles.errorText}>{profileError}</Text> : null}
       <View style={styles.header}>
         <View style={styles.profileRow}>
           <View style={styles.avatarWrap}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
+              {user.avatar ? (
+                <Image source={{uri: user.avatar}} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>{initials}</Text>
+              )}
             </View>
             <View style={styles.cameraDot}>
               <Icon color={colors.white} name="camera" size={10} />
@@ -47,6 +123,9 @@ export function ProfileScreen({navigation}: Props) {
             <Text style={styles.userMeta}>
               {user?.role ?? 'User'} | {user?.city ?? 'Unknown City'}
             </Text>
+            <Text style={styles.userStatus}>
+              {user.accountStatus ?? user.status ?? 'Active'}
+            </Text>
           </View>
           <Pressable
             onPress={() => navigation.navigate(ROUTES.profile.editProfile)}
@@ -55,6 +134,50 @@ export function ProfileScreen({navigation}: Props) {
           </Pressable>
         </View>
       </View>
+
+      {user.role === 'broker' ? (
+        <View style={styles.brokerCard}>
+          <SectionLabel title="Broker Profile" />
+          {isBrokerProfileLoading ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : brokerProfile ? (
+            <>
+              <Text style={styles.brokerTitle}>
+                {brokerProfile.firmName ?? 'Broker firm not added'}
+              </Text>
+              <Text style={styles.brokerText}>
+                {brokerProfile.officeAddress ?? 'Office address not added'}
+              </Text>
+              <Text style={styles.brokerText}>
+                Experience: {brokerProfile.experienceYears ?? 0} years
+              </Text>
+              <Text style={styles.brokerText}>
+                RERA: {brokerProfile.reraNumber ?? 'Not added'}
+              </Text>
+              <Text style={styles.brokerText}>
+                GST: {brokerProfile.gstNumber ?? 'Not added'}
+              </Text>
+              <Text style={styles.brokerText}>
+                Status:{' '}
+                {brokerProfile.verificationStatus ??
+                  brokerProfile.status ??
+                  (brokerProfile.verified ? 'Verified' : 'Pending')}
+              </Text>
+              {brokerProfile.rejectionReason ||
+              brokerProfile.verificationRemarks ||
+              brokerProfile.remarks ? (
+                <Text style={styles.brokerRemark}>
+                  {brokerProfile.rejectionReason ??
+                    brokerProfile.verificationRemarks ??
+                    brokerProfile.remarks}
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <Text style={styles.brokerText}>Broker profile is not available.</Text>
+          )}
+        </View>
+      ) : null}
 
       <View style={styles.summaryCard}>
         <ProfileStat label="Saved Properties" value={favouriteIds.length} />
@@ -210,6 +333,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   cameraDot: {
     position: 'absolute',
@@ -243,6 +371,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     textTransform: 'capitalize',
   },
+  userStatus: {
+    color: colors.textOnPrimarySoft,
+    fontSize: typography.fontSize.xs,
+    marginTop: spacing.xs,
+    textTransform: 'capitalize',
+  },
   editPill: {
     borderWidth: 1,
     borderColor: colors.textOnPrimarySoft,
@@ -268,6 +402,56 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: {width: 0, height: 8},
     elevation: 5,
+  },
+  brokerCard: {
+    backgroundColor: colors.white,
+    borderRadius: spacing.radiusLg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    gap: spacing.sm,
+  },
+  brokerTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.bold,
+  },
+  brokerText: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.sm,
+  },
+  brokerRemark: {
+    color: colors.error,
+    fontSize: typography.fontSize.sm,
+  },
+  centerState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  stateText: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.sm,
+    textAlign: 'center',
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: typography.fontSize.sm,
+    textAlign: 'center',
+  },
+  retryButton: {
+    minHeight: 44,
+    borderRadius: spacing.radiusMd,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  retryText: {
+    color: colors.white,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
   },
   statItem: {
     flex: 1,

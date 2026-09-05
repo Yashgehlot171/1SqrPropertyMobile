@@ -15,12 +15,12 @@ import {useAuthStore} from '@/store/authStore';
 export function CompleteProfileScreen() {
   const selectedRole = useAuthStore(state => state.selectedRole ?? 'buyer');
   const pendingMobile = useAuthStore(
-    state => state.pendingMobile ?? '9998887776',
+    state => state.pendingMobile ?? '',
   );
   const login = useAuthStore(state => state.login);
-  const [name, setName] = useState('Aarav Khanna');
-  const [email, setEmail] = useState('aarav.khanna@example.com');
-  const [city, setCity] = useState('Lucknow');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [city, setCity] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -52,7 +52,7 @@ export function CompleteProfileScreen() {
         name: trimmedName,
         email: trimmedEmail,
         city: trimmedCity,
-        avatar: '',
+        avatarFileId: undefined,
         mobile: pendingMobile,
         selectedRole,
       });
