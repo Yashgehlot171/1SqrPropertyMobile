@@ -2,6 +2,7 @@ export {apiRequest} from './apiClient';
 export {apiLoader} from './loader';
 export {tokenStorage} from './tokenStorage';
 export {uploadFile} from './uploadHelper';
+export type {UploadFileOptions, UploadModule} from './uploadHelper';
 export {ApiError, normalizeApiError, showApiError} from './errorHandler';
 export type {
   ApiEnvelope,

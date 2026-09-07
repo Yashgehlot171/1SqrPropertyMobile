@@ -160,9 +160,16 @@ export function PropertyListingScreen({ navigation, route }: Props) {
                   shareProperty(property);
                 }}
                 onToggleSave={() => {
+                  // Fire-and-forget, matching PropertyDetailScreen's convention:
+                  // toggleFavourite (savedStore) applies its optimistic update to
+                  // favouriteIds synchronously first, so the pre-toggle
+                  // favouriteIds check below still reflects the state as of this
+                  // tap. A failure is rolled back and surfaced by the store via
+                  // showApiError, independent of this toast.
+                  const wasSaved = favouriteIds.includes(property.id);
                   toggleFavourite(property.id);
                   showToast(
-                    favouriteIds.includes(property.id)
+                    wasSaved
                       ? 'Property removed from favourites.'
                       : 'Property saved to favourites.',
                   );

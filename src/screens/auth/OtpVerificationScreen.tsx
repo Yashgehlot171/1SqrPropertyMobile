@@ -19,6 +19,7 @@ export function OtpVerificationScreen({navigation, route}: Props) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const setPendingMobile = useAuthStore(state => state.setPendingMobile);
+  const login = useAuthStore(state => state.login);
 
   const handleVerifyOtp = async () => {
     setIsVerifying(true);
@@ -29,6 +30,20 @@ export function OtpVerificationScreen({navigation, route}: Props) {
 
       if (!result.verified) {
         setErrorMessage('Unable to verify OTP.');
+        return;
+      }
+
+      if (result.isProfileComplete && result.accessToken && result.user) {
+        // Returning, already-onboarded user: verifyOtp() already persisted a
+        // full session to storage. Flip the store's isLoggedIn so
+        // RootNavigator swaps to the Main stack instead of routing this
+        // user through Role Selection / Complete Profile again.
+        login({
+          token: result.accessToken,
+          refreshToken: result.refreshToken,
+          user: result.user,
+          selectedRole: result.user.role,
+        });
         return;
       }
 

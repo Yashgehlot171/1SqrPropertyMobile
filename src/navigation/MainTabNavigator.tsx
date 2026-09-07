@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
 
@@ -9,6 +9,7 @@ import {HomeStack} from '@/navigation/HomeStack';
 import {ProfileStack} from '@/navigation/ProfileStack';
 import {SavedStack} from '@/navigation/SavedStack';
 import {ServicesStack} from '@/navigation/ServicesStack';
+import {useSavedStore} from '@/store/savedStore';
 import type {MainTabParamList} from '@/types';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -26,6 +27,17 @@ function tabIcon(routeName: keyof MainTabParamList, focused: boolean) {
 }
 
 export function MainTabNavigator() {
+  const hydrateFavourites = useSavedStore(state => state.hydrateFavourites);
+
+  // MainTabNavigator only mounts once RootNavigator sees isLoggedIn === true (and
+  // unmounts on logout), the same way MainTabNavigator's own mount/unmount is
+  // already driven by that single auth flag — so a one-time hydrate here loads the
+  // logged-in user's real favourites exactly once per login, without needing a
+  // second auth-aware trigger elsewhere.
+  useEffect(() => {
+    hydrateFavourites();
+  }, [hydrateFavourites]);
+
   return (
     <Tab.Navigator
       screenOptions={({

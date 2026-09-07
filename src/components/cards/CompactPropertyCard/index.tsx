@@ -31,6 +31,7 @@ function getPropertyImage(propertyId: string) {
 interface CompactPropertyCardProps {
   property: Property;
   isSaved?: boolean;
+  isSavePending?: boolean;
   onPress?: () => void;
   onToggleSave?: () => void;
   onShare?: () => void;
@@ -41,6 +42,7 @@ interface CompactPropertyCardProps {
 export function CompactPropertyCard({
   property,
   isSaved,
+  isSavePending,
   onPress,
   onToggleSave,
   onShare,
@@ -51,7 +53,11 @@ export function CompactPropertyCard({
     <Pressable onPress={onPress} style={styles.card}>
       <View style={styles.imageWrap}>
         <Image source={getPropertyImage(property.id)} style={styles.image} />
-        <Pressable onPress={onToggleSave} style={styles.saveButton}>
+        <Pressable
+          disabled={isSavePending}
+          onPress={onToggleSave}
+          style={[styles.saveButton, isSavePending ? styles.saveButtonDisabled : null]}
+        >
           <Icon
             color={isSaved ? colors.brandPurple : colors.neutralIcon}
             name={isSaved ? 'heart' : 'heart-outline'}
@@ -181,6 +187,9 @@ const styles = StyleSheet.create({
     right: spacing.sm,
     top: spacing.sm,
     width: 32,
+  },
+  saveButtonDisabled: {
+    opacity: 0.5,
   },
   badgeRow: {
     bottom: spacing.sm,

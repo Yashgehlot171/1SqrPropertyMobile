@@ -17,6 +17,7 @@ import { ROUTES } from '@/constants/routes';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
+import { recordPropertyView } from '@/services/propertyApi';
 import { usePropertyStore } from '@/store/propertyStore';
 import { useSavedStore } from '@/store/savedStore';
 import type { HomeStackParamList, SavedStackParamList } from '@/types';
@@ -43,6 +44,7 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
   const tabNavigation = navigation.getParent<any>();
   const properties = usePropertyStore(state => state.properties);
   const favouriteIds = useSavedStore(state => state.favouriteIds);
+  const pendingIds = useSavedStore(state => state.pendingIds);
   const toggleFavourite = useSavedStore(state => state.toggleFavourite);
   const markContacted = useSavedStore(state => state.markContacted);
   const addRecentlyViewed = useSavedStore(state => state.addRecentlyViewed);
@@ -52,6 +54,10 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (property) {
       addRecentlyViewed(property.id);
+      // Fire-and-forget: recordPropertyView swallows its own errors internally so a
+      // view-tracking failure never disrupts this screen. Not awaited so it never
+      // delays rendering.
+      recordPropertyView(property.id);
     }
   }, [addRecentlyViewed, property]);
 
@@ -86,6 +92,7 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
   }
 
   const isSaved = favouriteIds.includes(property.id);
+  const isSavePending = pendingIds.has(property.id);
 
   const navigateToGallery = () => {
     stackNavigation.navigate(ROUTES.home.propertyGallery, {
@@ -94,6 +101,12 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
   };
 
   const saveProperty = () => {
+    // Fire-and-forget: toggleFavourite (savedStore) applies its own optimistic
+    // update to favouriteIds synchronously before making the network call, so
+    // isSaved above already reflects the new state as soon as this function
+    // returns — the toast below can fire immediately rather than waiting on the
+    // network round trip. A failure is rolled back and surfaced by the store
+    // itself via showApiError, independent of this toast.
     toggleFavourite(property.id);
     showToast(
       isSaved
@@ -129,7 +142,11 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
             size={20}
           />
         </Pressable>
-        <Pressable onPress={saveProperty} style={styles.headerButton}>
+        <Pressable
+          disabled={isSavePending}
+          onPress={saveProperty}
+          style={styles.headerButton}
+        >
           <Icon
             color={isSaved ? colors.brandPurple : colors.textPrimary}
             name={isSaved ? 'heart' : 'heart-outline'}
@@ -180,6 +197,7 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
             tone="success"
           />
           <SmallAction
+            disabled={isSavePending}
             icon="heart-outline"
             label={isSaved ? 'Saved' : "I'm Interested"}
             onPress={saveProperty}
@@ -294,6 +312,7 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
             {similarProperties.map(item => (
               <CompactPropertyCard
                 isSaved={favouriteIds.includes(item.id)}
+                isSavePending={pendingIds.has(item.id)}
                 key={item.id}
                 onCall={async () => {
                   markContacted(item.id);
@@ -364,11 +383,13 @@ function StatusBadge({
 }
 
 function SmallAction({
+  disabled,
   icon,
   label,
   onPress,
   tone = 'default',
 }: {
+  disabled?: boolean;
   icon: string;
   label: string;
   onPress: () => void;
@@ -379,11 +400,13 @@ function SmallAction({
 
   return (
     <Pressable
+      disabled={disabled}
       onPress={onPress}
       style={[
         styles.smallAction,
         isPrimary ? styles.smallActionPrimary : null,
         isSuccess ? styles.smallActionSuccess : null,
+        disabled ? styles.smallActionDisabled : null,
       ]}
     >
       <Icon
@@ -589,6 +612,9 @@ const styles = StyleSheet.create({
   },
   smallActionSuccess: {
     borderColor: colors.homeGreenSoft,
+  },
+  smallActionDisabled: {
+    opacity: 0.5,
   },
   smallActionText: {
     color: colors.textPrimary,

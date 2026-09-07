@@ -1,5 +1,6 @@
-import React, {useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
+  ActivityIndicator,
   Image,
   ImageSourcePropType,
   Pressable,
@@ -10,6 +11,7 @@ import {
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
+import {showApiError} from '@/api';
 import {
   AppHeader,
   ConfirmationModal,
@@ -21,7 +23,11 @@ import {colors, statusColors} from '@/constants/colors';
 import {ROUTES} from '@/constants/routes';
 import {spacing} from '@/constants/spacing';
 import {typography} from '@/constants/typography';
-import {useAuthStore} from '@/store/authStore';
+import {
+  deleteProperty,
+  getMyProperties,
+  updateProperty,
+} from '@/services/propertyApi';
 import {usePropertyStore} from '@/store/propertyStore';
 import type {
   AddPropertyStackParamList,
@@ -48,13 +54,7 @@ function getPropertyImage(propertyId: string) {
 }
 
 export function MyPropertiesScreen({navigation}: Props) {
-  const user = useAuthStore(state => state.user);
-  const properties = usePropertyStore(state => state.properties);
   const initializeDraft = usePropertyStore(state => state.initializeDraft);
-  const removeProperty = usePropertyStore(state => state.removeProperty);
-  const changePropertyStatus = usePropertyStore(
-    state => state.changePropertyStatus,
-  );
   const [activeStatus, setActiveStatus] =
     useState<PropertyLifecycleStatus>('Active');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(
@@ -63,23 +63,95 @@ export function MyPropertiesScreen({navigation}: Props) {
   const [expandedPropertyId, setExpandedPropertyId] = useState<string | null>(
     null,
   );
+  const [myProperties, setMyProperties] = useState<Property[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const ownedProperties = useMemo(() => {
-    if (!user) {
-      return [];
+  // GET /me/properties already scopes results to the current user server-side (see
+  // property.service.ts's myProperties()), so no client-side owner filter is needed
+  // here anymore — only the activeStatus tab filter (which has no server-side
+  // equivalent on this endpoint) is applied on top.
+  const loadMyProperties = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const items = await getMyProperties();
+      setMyProperties(items);
+    } catch (error) {
+      showApiError(error);
+      setLoadError('Unable to load your properties right now.');
+    } finally {
+      setIsLoading(false);
     }
+  }, []);
 
-    return properties.filter(
-      item =>
-        item.owner.id === user.id ||
-        (user.role !== 'buyer' && item.owner.role === user.role),
-    );
-  }, [properties, user]);
+  useEffect(() => {
+    loadMyProperties();
+  }, [loadMyProperties]);
 
   const filteredProperties = useMemo(
-    () => ownedProperties.filter(item => item.status === activeStatus),
-    [activeStatus, ownedProperties],
+    () => myProperties.filter(item => item.status === activeStatus),
+    [activeStatus, myProperties],
   );
+
+  // Sub-piece 2's real deleteProperty/updateProperty replace the previous
+  // local-only removeProperty/changePropertyStatus Zustand mutations. Note: the live
+  // backend currently returns 403 for both actions because of a still-pending
+  // server-side permission-seeding fix (separate backend work, not yet applied to the
+  // live database) — that is expected today, so failures surface a toast via
+  // showApiError (which reads the backend's own error message) instead of crashing.
+  const handleDelete = useCallback(async (property: Property) => {
+    try {
+      await deleteProperty(property.id);
+      setMyProperties(current => current.filter(item => item.id !== property.id));
+      showToast('Property deleted.');
+    } catch (error) {
+      showApiError(error);
+    }
+  }, []);
+
+  const handleStatusChange = useCallback(
+    async (property: Property, status: PropertyLifecycleStatus) => {
+      try {
+        const updated = await updateProperty(property.id, {status});
+        if (updated) {
+          setMyProperties(current =>
+            current.map(item => (item.id === property.id ? updated : item)),
+          );
+        }
+        showToast(`Status changed to ${status}.`);
+      } catch (error) {
+        showApiError(error);
+      }
+    },
+    [],
+  );
+
+  if (isLoading && !myProperties.length) {
+    return (
+      <ScreenContainer>
+        <AppHeader title="My Properties" onBackPress={navigation.goBack} />
+        <View style={styles.centerState}>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={styles.centerStateText}>Loading your properties...</Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (loadError && !myProperties.length) {
+    return (
+      <ScreenContainer>
+        <AppHeader title="My Properties" onBackPress={navigation.goBack} />
+        <View style={styles.centerState}>
+          <Text style={styles.centerStateText}>{loadError}</Text>
+          <Pressable onPress={loadMyProperties} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer>
@@ -134,8 +206,7 @@ export function MyPropertiesScreen({navigation}: Props) {
               await shareProperty(property);
             }}
             onStatusChange={status => {
-              changePropertyStatus(property.id, status);
-              showToast(`Status changed to ${status}.`);
+              handleStatusChange(property, status);
             }}
             onView={() =>
               navigation.navigate(ROUTES.addProperty.propertyPreview, {
@@ -161,14 +232,13 @@ export function MyPropertiesScreen({navigation}: Props) {
         confirmLabel="Delete"
         message={
           selectedProperty
-            ? `Delete ${selectedProperty.title} from the local list?`
+            ? `Delete ${selectedProperty.title}?`
             : 'Delete property?'
         }
         onCancel={() => setSelectedProperty(null)}
         onConfirm={() => {
           if (selectedProperty) {
-            removeProperty(selectedProperty.id);
-            showToast('Property deleted locally.');
+            handleDelete(selectedProperty);
           }
           setSelectedProperty(null);
         }}
@@ -311,6 +381,28 @@ function Action({
 }
 
 const styles = StyleSheet.create({
+  centerState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xxl,
+    gap: spacing.md,
+  },
+  centerStateText: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.sm,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.radiusMd,
+    backgroundColor: colors.primary,
+  },
+  retryButtonText: {
+    color: colors.white,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+  },
   tabRow: {
     flexDirection: 'row',
     gap: spacing.sm,
