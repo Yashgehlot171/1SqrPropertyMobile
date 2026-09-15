@@ -69,6 +69,7 @@ export const LEAD_STATUSES: LeadStatus[] = [
   'Negotiation',
   'Closed',
   'Lost',
+  'Converted',
 ];
 
 export const LEGAL_STATUSES: LegalStatus[] = [

@@ -7,7 +7,6 @@ import {colors} from '@/constants/colors';
 import {spacing} from '@/constants/spacing';
 import {typography} from '@/constants/typography';
 import type {Lead} from '@/types';
-import {formatCurrency} from '@/utils/formatCurrency';
 
 interface LeadCardProps {
   lead: Lead;
@@ -27,7 +26,6 @@ export function LeadCard({lead, onPress, onCall, onWhatsApp}: LeadCardProps) {
         <StatusChip label={lead.status} />
       </View>
       <Text style={styles.meta}>{lead.buyer.mobile}</Text>
-      <Text style={styles.meta}>{formatCurrency(lead.property.price)}</Text>
       <Text style={styles.meta}>
         Follow-up: {lead.followUpDate ?? 'Not scheduled'}
       </Text>

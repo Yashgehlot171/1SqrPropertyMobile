@@ -94,6 +94,15 @@ interface BackendMasterListResponse {
   pagination?: Partial<MasterPagination>;
 }
 
+// `false` is intentionally treated the same as `undefined`/`null`/`''` (skipped,
+// never serialized) rather than sent as the literal string "false". Every boolean
+// filter across this backend's Zod validators uses `z.coerce.boolean()`, and
+// `z.coerce.boolean().parse('false')` evaluates to `true` — under that coercion
+// scheme ANY non-empty string, including the literal "false", coerces truthy.
+// There is no string value this helper could send that the backend would parse
+// back as `false`; the only way to convey "false" is to omit the param entirely.
+// Do not "fix" this back to `String(value)` for `false` — that reintroduces a
+// silent false->true flip for every current and future boolean query param.
 export function buildQueryString(params?: object): string {
   if (!params) {
     return '';
@@ -101,7 +110,7 @@ export function buildQueryString(params?: object): string {
 
   const searchParams = new URLSearchParams();
   Object.entries(params as Record<string, unknown>).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
+    if (value !== undefined && value !== null && value !== '' && value !== false) {
       searchParams.append(key, String(value));
     }
   });

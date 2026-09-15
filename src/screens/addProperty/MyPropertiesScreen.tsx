@@ -192,7 +192,11 @@ export function MyPropertiesScreen({navigation}: Props) {
             imageSource={getPropertyImage(property.id)}
             onDelete={() => setSelectedProperty(property)}
             onEdit={() => {
-              initializeDraft(property.id);
+              // Pass the already-fetched real property straight through so the
+              // store doesn't need to (and previously incorrectly tried to) look
+              // it up in the local mock array, which would never contain a real
+              // backend id and silently produced a blank draft.
+              initializeDraft(property.id, property);
               navigation.navigate(ROUTES.addProperty.addPropertyBasic, {
                 propertyId: property.id,
               });

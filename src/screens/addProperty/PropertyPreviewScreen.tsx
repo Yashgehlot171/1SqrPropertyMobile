@@ -4,18 +4,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
+import { normalizeApiError, showApiError } from '@/api';
 import { ConfirmationModal, EmptyState } from '@/components';
 import { colors } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
+import {
+  addProperty,
+  deleteProperty,
+  updateProperty,
+} from '@/services/propertyApi';
 import { usePropertyStore } from '@/store/propertyStore';
-import type { AddPropertyStackParamList } from '@/types';
+import type {
+  AddPropertyStackParamList,
+  Property,
+  PropertyLifecycleStatus,
+} from '@/types';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { showToast } from '@/utils/toast';
 
 import {
   AddPropertyHeader,
+  InlineAsyncState,
   PrimaryButton,
   ScreenIntro,
   SecondaryTextButton,
@@ -31,11 +42,14 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
   const draft = usePropertyStore(state => state.editorDraft);
   const editorPropertyId = usePropertyStore(state => state.editorPropertyId);
   const initializeDraft = usePropertyStore(state => state.initializeDraft);
-  const saveDraft = usePropertyStore(state => state.saveDraft);
-  const submitDraft = usePropertyStore(state => state.submitDraft);
-  const removeProperty = usePropertyStore(state => state.removeProperty);
+  const setEditorProperty = usePropertyStore(state => state.setEditorProperty);
   const clearDraft = usePropertyStore(state => state.clearDraft);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [draftSaveError, setDraftSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (
@@ -64,6 +78,100 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
       : isExisting
       ? 'Update Property'
       : 'Publish Property';
+
+  // Shared by both Publish and Save as Draft: the backend's create/update endpoints
+  // both accept a `status` field (see propertyApi.ts's REVERSE_STATUS_MAP, which maps
+  // the mock model's 'Draft'/'Active' straight onto the backend's own draft/active
+  // PropertyStatus enum values), so there is a real, persisted backend draft concept —
+  // "Save as Draft" is not a local-only action here. The only difference between the
+  // two actions is which status they submit; both go through the exact same
+  // addProperty (new property) / updateProperty (existing property) calls, which
+  // also upload any pending local-URI media/documents internally before saving.
+  const persistProperty = async (
+    status: PropertyLifecycleStatus,
+  ): Promise<Property | undefined> => {
+    // `draft` carries an extra `tempId` field (PropertyDraftState only, not part of
+    // AddPropertyPayload/Property) — harmless to spread here since TS's excess-
+    // property check is suppressed for spread-introduced keys, and propertyApi's
+    // addProperty/updateProperty only ever read the fields they declare.
+    if (editorPropertyId) {
+      return updateProperty(editorPropertyId, { ...draft, status });
+    }
+
+    return addProperty({ ...draft, status });
+  };
+
+  const handlePublish = async () => {
+    setPublishError(null);
+    setIsPublishing(true);
+    try {
+      const saved = await persistProperty('Active');
+      if (saved) {
+        clearDraft();
+        showToast(
+          isExisting ? 'Property updated.' : 'Property published.',
+        );
+        navigation.replace(ROUTES.addProperty.myProperties);
+      } else {
+        // updateProperty resolves to undefined only on a 404 (the property was
+        // deleted/no longer exists) — a real failure, but not one that throws.
+        setPublishError(
+          'This property could not be found. It may have been deleted.',
+        );
+      }
+    } catch (error) {
+      setPublishError(normalizeApiError(error).message);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    setDraftSaveError(null);
+    setIsSavingDraft(true);
+    try {
+      const saved = await persistProperty('Draft');
+      if (saved) {
+        // Point the editor at the real backend id (a brand-new draft has none
+        // until this first save), so a second "Save as Draft" tap — or the
+        // eventual Publish — updates this same property instead of creating a
+        // duplicate.
+        setEditorProperty(saved);
+        showToast('Draft saved to your account.');
+      } else {
+        setDraftSaveError(
+          'This property could not be found. It may have been deleted.',
+        );
+      }
+    } catch (error) {
+      setDraftSaveError(normalizeApiError(error).message);
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editorPropertyId) {
+      clearDraft();
+      setShowDeleteConfirm(false);
+      navigation.replace(ROUTES.addProperty.myProperties);
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteProperty(editorPropertyId);
+      clearDraft();
+      setShowDeleteConfirm(false);
+      showToast('Property deleted.');
+      navigation.replace(ROUTES.addProperty.myProperties);
+    } catch (error) {
+      setShowDeleteConfirm(false);
+      showApiError(error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -146,25 +254,38 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
         </View>
 
         <PrimaryButton
+          disabled={isSavingDraft || isDeleting}
           label={submitLabel}
-          onPress={() => {
-            const property = submitDraft();
-            if (property) {
-              showToast('Property saved to local list.');
-              navigation.replace(ROUTES.addProperty.myProperties);
-            }
-          }}
+          loading={isPublishing}
+          onPress={handlePublish}
         />
+        {publishError ? (
+          <InlineAsyncState
+            error={publishError}
+            isLoading={false}
+            loadingLabel=""
+            onRetry={handlePublish}
+          />
+        ) : null}
         <SecondaryTextButton
+          disabled={isPublishing || isDeleting}
           label="Save as Draft"
-          onPress={() => {
-            saveDraft();
-            showToast('Draft saved locally.');
-          }}
+          loading={isSavingDraft}
+          onPress={handleSaveDraft}
         />
+        {draftSaveError ? (
+          <InlineAsyncState
+            error={draftSaveError}
+            isLoading={false}
+            loadingLabel=""
+            onRetry={handleSaveDraft}
+          />
+        ) : null}
         {isExisting ? (
           <SecondaryTextButton
+            disabled={isPublishing || isSavingDraft}
             label="Delete Property"
+            loading={isDeleting}
             onPress={() => setShowDeleteConfirm(true)}
           />
         ) : null}
@@ -172,17 +293,9 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
 
       <ConfirmationModal
         confirmLabel="Delete"
-        message="This draft or property will be removed from the local list."
+        message="This will permanently delete the property from your account."
         onCancel={() => setShowDeleteConfirm(false)}
-        onConfirm={() => {
-          if (editorPropertyId) {
-            removeProperty(editorPropertyId);
-          }
-          clearDraft();
-          setShowDeleteConfirm(false);
-          showToast('Property deleted locally.');
-          navigation.replace(ROUTES.addProperty.myProperties);
-        }}
+        onConfirm={handleDelete}
         title="Delete Property"
         visible={showDeleteConfirm}
       />

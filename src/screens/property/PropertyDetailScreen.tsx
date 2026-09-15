@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Image,
   ImageSourcePropType,
@@ -17,7 +17,14 @@ import { ROUTES } from '@/constants/routes';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
-import { recordPropertyView } from '@/services/propertyApi';
+import { showApiError } from '@/api';
+import {
+  markPropertyInterested,
+  recordPropertyView,
+  trackPropertyCall,
+  trackPropertyShare,
+  trackPropertyWhatsapp,
+} from '@/services/propertyApi';
 import { usePropertyStore } from '@/store/propertyStore';
 import { useSavedStore } from '@/store/savedStore';
 import type { HomeStackParamList, SavedStackParamList } from '@/types';
@@ -48,6 +55,16 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
   const toggleFavourite = useSavedStore(state => state.toggleFavourite);
   const markContacted = useSavedStore(state => state.markContacted);
   const addRecentlyViewed = useSavedStore(state => state.addRecentlyViewed);
+  // Local, per-screen guard for the "I'm Interested" button only. Unlike 3b's
+  // toggleFavourite (a two-state toggle with an optimistic update to roll back),
+  // markPropertyInterested is a one-shot, fire-and-forget lead signal with no
+  // opposite direction — a double-tap's worst case is the same lead getting touched
+  // twice (harmless; the backend finds-or-updates one lead per user+property rather
+  // than creating a duplicate). A simple local boolean is enough to disable the
+  // button while the request is in flight and avoid a duplicate toast; the shared
+  // pendingIds-in-a-store machinery from savedStore (built for optimistic-then-
+  // rollback toggles) would be overkill for this milder failure mode.
+  const [isInterestPending, setIsInterestPending] = useState(false);
 
   const property = properties.find(item => item.id === route.params.propertyId);
 
@@ -117,12 +134,49 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
 
   const callOwner = async () => {
     markContacted(property.id);
+    // Tracking call is fire-and-forget (void, not awaited) so the dialer's
+    // responsiveness is never gated on this network round trip; trackPropertyCall
+    // swallows its own errors, matching recordPropertyView's "must never disrupt the
+    // screen" reasoning.
+    void trackPropertyCall(property.id);
     await callPropertyOwner(property);
   };
 
   const openChat = async () => {
     markContacted(property.id);
+    void trackPropertyWhatsapp(property.id);
     await openWhatsAppForProperty(property);
+  };
+
+  const shareThisProperty = () => {
+    // Fired without awaiting, right when the share sheet is invoked, not after the
+    // user's app choice resolves — Share.share()'s promise only resolves once the
+    // user picks an app or dismisses the sheet, and its result doesn't reliably
+    // report which app was chosen anyway (see propertyApi.ts's trackPropertyShare),
+    // so there is nothing more accurate to wait for. "share" is used as the generic
+    // channel value since the actual OS-level app choice isn't reliably knowable.
+    void trackPropertyShare(property.id, 'share');
+    void shareProperty(property);
+  };
+
+  // Distinct from `saveProperty`/`toggleFavourite` above (the header heart icon,
+  // 3b's favourite/save toggle) — this is a separate backend action
+  // (POST /properties/:id/interested) that records lead-generating interest, not a
+  // favourite toggle. It has no "undo" state, so it doesn't mirror `isSaved`; a tap
+  // fires the request and shows a success or failure toast.
+  const markInterested = async () => {
+    if (isInterestPending) {
+      return;
+    }
+    setIsInterestPending(true);
+    try {
+      await markPropertyInterested(property.id);
+      showToast("We've shared your interest with the owner.");
+    } catch (error) {
+      showApiError(error);
+    } finally {
+      setIsInterestPending(false);
+    }
   };
 
   return (
@@ -133,7 +187,7 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
         </Pressable>
         <Text style={styles.headerTitle}>Property Details</Text>
         <Pressable
-          onPress={() => shareProperty(property)}
+          onPress={shareThisProperty}
           style={styles.headerButton}
         >
           <Icon
@@ -197,10 +251,10 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
             tone="success"
           />
           <SmallAction
-            disabled={isSavePending}
+            disabled={isInterestPending}
             icon="heart-outline"
-            label={isSaved ? 'Saved' : "I'm Interested"}
-            onPress={saveProperty}
+            label="I'm Interested"
+            onPress={markInterested}
             tone="primary"
           />
         </View>
@@ -316,6 +370,9 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
                 key={item.id}
                 onCall={async () => {
                   markContacted(item.id);
+                  // Same fire-and-forget tracking as callOwner above, applied to the
+                  // similar-properties cards' own Call action.
+                  void trackPropertyCall(item.id);
                   await callPropertyOwner(item);
                 }}
                 onPress={() =>
@@ -323,10 +380,14 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
                     propertyId: item.id,
                   })
                 }
-                onShare={() => shareProperty(item)}
+                onShare={() => {
+                  void trackPropertyShare(item.id, 'share');
+                  void shareProperty(item);
+                }}
                 onToggleSave={() => toggleFavourite(item.id)}
                 onWhatsApp={async () => {
                   markContacted(item.id);
+                  void trackPropertyWhatsapp(item.id);
                   await openWhatsAppForProperty(item);
                 }}
                 property={item}

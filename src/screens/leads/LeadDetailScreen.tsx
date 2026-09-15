@@ -1,12 +1,12 @@
-import React, {useMemo, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {ActivityIndicator, Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
+import {showApiError} from '@/api';
 import {
   AppButton,
   AppHeader,
   AppInput,
-  ConfirmationModal,
   EmptyState,
   RemarkCard,
   ScreenContainer,
@@ -17,64 +17,239 @@ import {LEAD_STATUSES} from '@/constants/appConstants';
 import {colors} from '@/constants/colors';
 import {spacing} from '@/constants/spacing';
 import {typography} from '@/constants/typography';
-import {useLeadStore} from '@/store/leadStore';
-import type {LeadStatus, ProfileStackParamList, Remark} from '@/types';
-import {formatCurrency} from '@/utils/formatCurrency';
+import {
+  addLeadRemark,
+  getLeadById,
+  scheduleLeadFollowUp,
+  updateLeadStatus,
+} from '@/services/leadApi';
+import type {Lead, LeadStatus, ProfileStackParamList} from '@/types';
 import {callLeadBuyer, openWhatsAppForLead} from '@/utils/leadActions';
 import {showToast} from '@/utils/toast';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'LeadDetail'>;
 
+// Mirrors leadApi.ts's (unexported) STATUS_SLUGS_REQUIRING_REMARK /
+// STATUS_SLUG_REQUIRING_VISIT_DATE at the label level. leadApi.ts's
+// updateLeadStatus only enforces this after the fact (throwing a client-side Error
+// before the request goes out), so the UI needs to know *before* the user taps a
+// status chip which ones need extra input, in order to prompt for it instead of
+// firing a request that is guaranteed to throw.
+const STATUSES_REQUIRING_REMARK: LeadStatus[] = ['Closed', 'Lost', 'Converted'];
+const STATUS_REQUIRING_VISIT_DATE: LeadStatus = 'Site Visit';
+
 export function LeadDetailScreen({navigation, route}: Props) {
-  const leads = useLeadStore(state => state.leads);
-  const updateLeadStatus = useLeadStore(state => state.updateLeadStatus);
-  const updateFollowUpDate = useLeadStore(state => state.updateFollowUpDate);
-  const addRemark = useLeadStore(state => state.addRemark);
-  const editRemark = useLeadStore(state => state.editRemark);
-  const deleteRemark = useLeadStore(state => state.deleteRemark);
-  const removeLead = useLeadStore(state => state.removeLead);
-  const lead = leads.find(item => item.id === route.params.leadId);
+  const {leadId} = route.params;
+
+  const [lead, setLead] = useState<Lead | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [remarkText, setRemarkText] = useState('');
-  const [editingRemark, setEditingRemark] = useState<Remark | null>(null);
-  const [followUpDate, setFollowUpDate] = useState(lead?.followUpDate ?? '');
-  const [deleteTarget, setDeleteTarget] = useState<Remark | null>(null);
-  const [showLeadDelete, setShowLeadDelete] = useState(false);
+  const [isSavingRemark, setIsSavingRemark] = useState(false);
+
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpNextAction, setFollowUpNextAction] = useState('');
+  const [isSavingFollowUp, setIsSavingFollowUp] = useState(false);
+
+  // Status change awaiting the extra remark/visitDate input required for
+  // Closed/Lost/Converted/Site Visit — see STATUSES_REQUIRING_REMARK above.
+  const [pendingStatus, setPendingStatus] = useState<LeadStatus | null>(null);
+  const [statusRemark, setStatusRemark] = useState('');
+  const [statusVisitDate, setStatusVisitDate] = useState('');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const sortedHistory = useMemo(
     () => [...(lead?.history ?? [])].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [lead?.history],
   );
 
-  if (!lead) {
-    return (
-      <ScreenContainer>
-        <AppHeader title="Lead Detail" onBackPress={navigation.goBack} />
-        <EmptyState
-          description="This lead is not available in the local workflow."
-          title="Lead not found"
-        />
-      </ScreenContainer>
-    );
-  }
+  const loadLead = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const item = await getLeadById(leadId);
+      if (item) {
+        setLead(item);
+        setFollowUpDate(item.followUpDate ? item.followUpDate.slice(0, 10) : '');
+      } else {
+        setLoadError('This lead could not be found.');
+      }
+    } catch (error) {
+      showApiError(error);
+      setLoadError('Unable to load this lead right now.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [leadId]);
 
-  const handleSaveRemark = () => {
+  useEffect(() => {
+    loadLead();
+  }, [loadLead]);
+
+  const applyStatusChange = useCallback(
+    async (status: LeadStatus, options?: {remark?: string; visitDate?: string}) => {
+      if (!lead) {
+        return;
+      }
+      setIsUpdatingStatus(true);
+      try {
+        const updated = await updateLeadStatus(lead.id, status, options);
+        if (updated) {
+          setLead(updated);
+          showToast(`Lead status updated to ${status}.`);
+          setPendingStatus(null);
+          setStatusRemark('');
+          setStatusVisitDate('');
+        } else {
+          showToast('Could not update lead status — please try again.');
+        }
+      } catch (error) {
+        showApiError(error);
+      } finally {
+        setIsUpdatingStatus(false);
+      }
+    },
+    [lead],
+  );
+
+  const handleStatusPress = (status: LeadStatus) => {
+    if (!lead || status === lead.status) {
+      return;
+    }
+    if (
+      STATUSES_REQUIRING_REMARK.includes(status) ||
+      status === STATUS_REQUIRING_VISIT_DATE
+    ) {
+      setPendingStatus(status);
+      setStatusRemark('');
+      setStatusVisitDate('');
+      return;
+    }
+    void applyStatusChange(status);
+  };
+
+  const handleConfirmPendingStatus = () => {
+    if (!pendingStatus) {
+      return;
+    }
+    if (STATUSES_REQUIRING_REMARK.includes(pendingStatus)) {
+      const trimmed = statusRemark.trim();
+      if (!trimmed) {
+        showToast('A remark is required for this status.');
+        return;
+      }
+      void applyStatusChange(pendingStatus, {remark: trimmed});
+      return;
+    }
+    const trimmedDate = statusVisitDate.trim();
+    if (!trimmedDate) {
+      showToast('A visit date is required for this status.');
+      return;
+    }
+    void applyStatusChange(pendingStatus, {visitDate: trimmedDate});
+  };
+
+  const handleCancelPendingStatus = () => {
+    setPendingStatus(null);
+    setStatusRemark('');
+    setStatusVisitDate('');
+  };
+
+  const handleSaveRemark = async () => {
+    if (!lead) {
+      return;
+    }
     const trimmed = remarkText.trim();
     if (!trimmed) {
       showToast('Remark text is required.');
       return;
     }
-
-    if (editingRemark) {
-      editRemark(lead.id, editingRemark.id, trimmed);
-      showToast('Remark updated locally.');
-      setEditingRemark(null);
-    } else {
-      addRemark(lead.id, trimmed);
-      showToast('Remark added locally.');
+    setIsSavingRemark(true);
+    try {
+      const remark = await addLeadRemark(lead.id, trimmed);
+      if (remark) {
+        setLead(current =>
+          current ? {...current, remarks: [remark, ...current.remarks]} : current,
+        );
+        showToast('Remark added.');
+        setRemarkText('');
+      } else {
+        showToast('Could not add remark — please try again.');
+      }
+    } catch (error) {
+      showApiError(error);
+    } finally {
+      setIsSavingRemark(false);
     }
-
-    setRemarkText('');
   };
+
+  const handleSaveFollowUp = async () => {
+    if (!lead) {
+      return;
+    }
+    const trimmedDate = followUpDate.trim();
+    const trimmedAction = followUpNextAction.trim();
+    if (!trimmedDate || !trimmedAction) {
+      showToast('Follow-up date and next action are both required.');
+      return;
+    }
+    setIsSavingFollowUp(true);
+    try {
+      const followUp = await scheduleLeadFollowUp(lead.id, {
+        followUpAt: trimmedDate,
+        nextAction: trimmedAction,
+      });
+      if (followUp) {
+        setLead(current =>
+          current ? {...current, followUpDate: followUp.followUpAt} : current,
+        );
+        showToast('Follow-up scheduled.');
+        setFollowUpNextAction('');
+      } else {
+        showToast('Could not schedule follow-up — please try again.');
+      }
+    } catch (error) {
+      showApiError(error);
+    } finally {
+      setIsSavingFollowUp(false);
+    }
+  };
+
+  if (isLoading && !lead) {
+    return (
+      <ScreenContainer>
+        <AppHeader title="Lead Detail" onBackPress={navigation.goBack} />
+        <View style={styles.centerState}>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={styles.centerStateText}>Loading lead...</Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (loadError && !lead) {
+    return (
+      <ScreenContainer>
+        <AppHeader title="Lead Detail" onBackPress={navigation.goBack} />
+        <View style={styles.centerState}>
+          <Text style={styles.centerStateText}>{loadError}</Text>
+          <Pressable onPress={loadLead} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (!lead) {
+    return (
+      <ScreenContainer>
+        <AppHeader title="Lead Detail" onBackPress={navigation.goBack} />
+        <EmptyState description="This lead is not available." title="Lead not found" />
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer>
@@ -86,7 +261,6 @@ export function LeadDetailScreen({navigation, route}: Props) {
       <View style={styles.hero}>
         <Text style={styles.heroTitle}>{lead.property.title}</Text>
         <Text style={styles.heroMeta}>{lead.buyer.mobile}</Text>
-        <Text style={styles.heroMeta}>{formatCurrency(lead.property.price)}</Text>
         <View style={styles.chips}>
           <StatusChip label={lead.status} />
           {lead.followUpDate ? <StatusChip label={lead.followUpDate} /> : null}
@@ -131,72 +305,89 @@ export function LeadDetailScreen({navigation, route}: Props) {
               isSelected={lead.status === status}
               key={status}
               label={status}
-              onPress={() => {
-                updateLeadStatus(lead.id, status as LeadStatus);
-                showToast(`Lead status updated to ${status}.`);
-              }}
+              onPress={() => handleStatusPress(status)}
             />
           ))}
         </View>
+        {pendingStatus ? (
+          <View style={styles.pendingStatusBox}>
+            {STATUSES_REQUIRING_REMARK.includes(pendingStatus) ? (
+              <AppInput
+                label={`Remark for moving to ${pendingStatus}`}
+                multiline
+                onChangeText={setStatusRemark}
+                placeholder="Add a remark explaining this status change"
+                required
+                value={statusRemark}
+              />
+            ) : (
+              <AppInput
+                label="Site Visit Date (YYYY-MM-DD)"
+                onChangeText={setStatusVisitDate}
+                placeholder="2026-06-20"
+                required
+                value={statusVisitDate}
+              />
+            )}
+            <View style={styles.actions}>
+              <AppButton
+                label="Cancel"
+                onPress={handleCancelPendingStatus}
+                style={styles.actionButton}
+                variant="outlined"
+              />
+              <AppButton
+                label="Confirm"
+                loading={isUpdatingStatus}
+                onPress={handleConfirmPendingStatus}
+                style={styles.actionButton}
+                variant="secondary"
+              />
+            </View>
+          </View>
+        ) : null}
       </View>
       <View style={styles.card}>
-        <SectionHeader title="Follow-up Date" />
+        <SectionHeader title="Follow-up" />
         <AppInput
-          label="Follow-up (YYYY-MM-DD)"
+          label="Follow-up Date (YYYY-MM-DD)"
           onChangeText={setFollowUpDate}
           placeholder="2026-06-20"
+          required
           value={followUpDate}
         />
+        <AppInput
+          label="Next Action"
+          onChangeText={setFollowUpNextAction}
+          placeholder="e.g. Call back to confirm site visit interest"
+          required
+          value={followUpNextAction}
+        />
         <AppButton
-          label="Save Follow-up Date"
-          onPress={() => {
-            updateFollowUpDate(lead.id, followUpDate.trim());
-            showToast('Follow-up date updated locally.');
-          }}
+          label="Save Follow-up"
+          loading={isSavingFollowUp}
+          onPress={handleSaveFollowUp}
           variant="secondary"
         />
       </View>
       <View style={styles.card}>
         <SectionHeader title="Remarks" />
         <AppInput
-          label={editingRemark ? 'Edit Remark' : 'Add Remark'}
+          label="Add Remark"
           multiline
           onChangeText={setRemarkText}
           placeholder="Add a remark for this lead"
           required
           value={remarkText}
         />
-        <View style={styles.actions}>
-          {editingRemark ? (
-            <AppButton
-              label="Cancel Edit"
-              onPress={() => {
-                setEditingRemark(null);
-                setRemarkText('');
-              }}
-              style={styles.actionButton}
-              variant="outlined"
-            />
-          ) : null}
-          <AppButton
-            label={editingRemark ? 'Update Remark' : 'Add Remark'}
-            onPress={handleSaveRemark}
-            style={styles.actionButton}
-            variant="secondary"
-          />
-        </View>
+        <AppButton
+          label="Add Remark"
+          loading={isSavingRemark}
+          onPress={handleSaveRemark}
+          variant="secondary"
+        />
         {lead.remarks.length ? (
-          lead.remarks.map(remark => (
-            <RemarkCard
-              key={remark.id}
-              onDelete={() => setDeleteTarget(remark)}
-              onEdit={() => {
-                setEditingRemark(remark);
-                setRemarkText(remark.text);
-              }}
-              remark={remark}
-            />
-          ))
+          lead.remarks.map(remark => <RemarkCard key={remark.id} remark={remark} />)
         ) : (
           <Text style={styles.emptyText}>No remarks added yet.</Text>
         )}
@@ -216,42 +407,6 @@ export function LeadDetailScreen({navigation, route}: Props) {
           <Text style={styles.emptyText}>No status history available.</Text>
         )}
       </View>
-      <AppButton
-        label="Close / Delete Lead"
-        onPress={() => setShowLeadDelete(true)}
-        variant="danger"
-      />
-      <ConfirmationModal
-        confirmLabel="Delete"
-        message={
-          deleteTarget
-            ? `Delete the remark "${deleteTarget.text}"?`
-            : 'Delete this remark?'
-        }
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (deleteTarget) {
-            deleteRemark(lead.id, deleteTarget.id);
-            showToast('Remark deleted locally.');
-          }
-          setDeleteTarget(null);
-        }}
-        title="Delete Remark"
-        visible={Boolean(deleteTarget)}
-      />
-      <ConfirmationModal
-        confirmLabel="Delete"
-        message="Remove this lead from the local list?"
-        onCancel={() => setShowLeadDelete(false)}
-        onConfirm={() => {
-          removeLead(lead.id);
-          setShowLeadDelete(false);
-          showToast('Lead deleted locally.');
-          navigation.goBack();
-        }}
-        title="Delete Lead"
-        visible={showLeadDelete}
-      />
     </ScreenContainer>
   );
 }
@@ -359,6 +514,12 @@ const styles = StyleSheet.create({
   statusChipTextSelected: {
     color: colors.white,
   },
+  pendingStatusBox: {
+    gap: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    paddingTop: spacing.md,
+  },
   historyRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -371,5 +532,27 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.textSecondary,
+  },
+  centerState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xxl,
+    gap: spacing.md,
+  },
+  centerStateText: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.sm,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.radiusMd,
+    backgroundColor: colors.primary,
+  },
+  retryButtonText: {
+    color: colors.white,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
   },
 });

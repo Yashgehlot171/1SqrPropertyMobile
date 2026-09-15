@@ -20,12 +20,15 @@ export function replace(routeName: keyof RootStackParamList, params?: object) {
   }
 }
 
-export function resetAndNavigate(routeName: keyof RootStackParamList) {
+export function resetAndNavigate(
+  routeName: keyof RootStackParamList,
+  params?: object,
+) {
   if (navigationRef.isReady()) {
     navigationRef.dispatch(
       CommonActions.reset({
         index: 0,
-        routes: [{name: routeName}],
+        routes: [{name: routeName, params}],
       }),
     );
   }

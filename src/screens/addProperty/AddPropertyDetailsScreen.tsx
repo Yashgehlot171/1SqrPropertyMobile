@@ -4,21 +4,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-import {
-  BHK_OPTIONS,
-  FACING_OPTIONS,
-  READY_TO_MOVE_OPTIONS,
-} from '@/constants/appConstants';
 import { colors } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { spacing } from '@/constants/spacing';
+import { useMasterOptions } from '@/hooks/useMasterOptions';
 import { usePropertyStore } from '@/store/propertyStore';
-import type { AddPropertyStackParamList } from '@/types';
+import type { AddPropertyStackParamList, PropertyReadyState } from '@/types';
 
 import {
   AddPropertyHeader,
   FieldLabel,
   FormField,
+  InlineAsyncState,
   OptionChip,
   PrimaryButton,
   ScreenIntro,
@@ -34,21 +31,28 @@ type Props = NativeStackScreenProps<
 
 const furnishingOptions = ['Unfurnished', 'Semi Furnished', 'Fully Furnished'];
 
-const defaultAmenities = [
-  'Water',
-  'Electricity',
-  'Drainage',
-  'Park',
-  'School',
-  'Hospital',
-];
-
 export function AddPropertyDetailsScreen({ navigation, route }: Props) {
   const draft = usePropertyStore(state => state.editorDraft);
   const editorPropertyId = usePropertyStore(state => state.editorPropertyId);
   const initializeDraft = usePropertyStore(state => state.initializeDraft);
   const updateDraft = usePropertyStore(state => state.updateDraft);
   const [amenitiesInput, setAmenitiesInput] = useState('');
+  const facingOptions = useMasterOptions(
+    'facing-directions',
+    'Unable to load facing options right now.',
+  );
+  const bhkOptions = useMasterOptions(
+    'bhk-options',
+    'Unable to load BHK options right now.',
+  );
+  const readyStateOptions = useMasterOptions(
+    'ready-states',
+    'Unable to load ready-state options right now.',
+  );
+  const amenityOptions = useMasterOptions(
+    'amenities',
+    'Unable to load amenities right now.',
+  );
 
   useEffect(() => {
     if (
@@ -137,17 +141,26 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
           />
         </View>
 
-        <SelectField label="Facing" value={draft.facing || 'East'} />
-        <View style={styles.selectorChips}>
-          {FACING_OPTIONS.map(option => (
-            <OptionChip
-              isSelected={draft.facing === option}
-              key={option}
-              label={option}
-              onPress={() => updateDraft({ facing: option })}
-            />
-          ))}
-        </View>
+        <SelectField label="Facing" value={draft.facing || ''} placeholder="Select facing" />
+        {facingOptions.isLoading || facingOptions.error ? (
+          <InlineAsyncState
+            error={facingOptions.error}
+            isLoading={facingOptions.isLoading}
+            loadingLabel="Loading facing options..."
+            onRetry={facingOptions.reload}
+          />
+        ) : (
+          <View style={styles.selectorChips}>
+            {facingOptions.items.map(option => (
+              <OptionChip
+                isSelected={draft.facing === option.name}
+                key={option.id}
+                label={option.name}
+                onPress={() => updateDraft({ facing: option.name })}
+              />
+            ))}
+          </View>
+        )}
 
         <SelectField
           label="Road Width"
@@ -166,16 +179,25 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
 
         {isResidential ? (
           <Section title="BHK">
-            <View style={styles.optionRow}>
-              {BHK_OPTIONS.map(option => (
-                <OptionChip
-                  isSelected={draft.bhk === option}
-                  key={option}
-                  label={option}
-                  onPress={() => updateDraft({ bhk: option })}
-                />
-              ))}
-            </View>
+            {bhkOptions.isLoading || bhkOptions.error ? (
+              <InlineAsyncState
+                error={bhkOptions.error}
+                isLoading={bhkOptions.isLoading}
+                loadingLabel="Loading BHK options..."
+                onRetry={bhkOptions.reload}
+              />
+            ) : (
+              <View style={styles.optionRow}>
+                {bhkOptions.items.map(option => (
+                  <OptionChip
+                    isSelected={draft.bhk === option.name}
+                    key={option.id}
+                    label={option.name}
+                    onPress={() => updateDraft({ bhk: option.name })}
+                  />
+                ))}
+              </View>
+            )}
           </Section>
         ) : null}
 
@@ -209,16 +231,29 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
         </View>
 
         <Section title="Ready State">
-          <View style={styles.optionRow}>
-            {READY_TO_MOVE_OPTIONS.map(option => (
-              <OptionChip
-                isSelected={draft.readyState === option}
-                key={option}
-                label={option}
-                onPress={() => updateDraft({ readyState: option })}
-              />
-            ))}
-          </View>
+          {readyStateOptions.isLoading || readyStateOptions.error ? (
+            <InlineAsyncState
+              error={readyStateOptions.error}
+              isLoading={readyStateOptions.isLoading}
+              loadingLabel="Loading ready-state options..."
+              onRetry={readyStateOptions.reload}
+            />
+          ) : (
+            <View style={styles.optionRow}>
+              {readyStateOptions.items.map(option => (
+                <OptionChip
+                  isSelected={draft.readyState === option.name}
+                  key={option.id}
+                  label={option.name}
+                  onPress={() =>
+                    updateDraft({
+                      readyState: option.name as PropertyReadyState,
+                    })
+                  }
+                />
+              ))}
+            </View>
+          )}
         </Section>
 
         <Section title="Furnishing">
@@ -236,26 +271,35 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
 
         <View style={styles.amenitySection}>
           <FieldLabel label="Amenities" />
-          <View style={styles.amenityGrid}>
-            {defaultAmenities.map(amenity => {
-              const selected = draft.amenities.includes(amenity);
+          {amenityOptions.isLoading || amenityOptions.error ? (
+            <InlineAsyncState
+              error={amenityOptions.error}
+              isLoading={amenityOptions.isLoading}
+              loadingLabel="Loading amenities..."
+              onRetry={amenityOptions.reload}
+            />
+          ) : (
+            <View style={styles.amenityGrid}>
+              {amenityOptions.items.map(amenity => {
+                const selected = draft.amenities.includes(amenity.name);
 
-              return (
-                <View key={amenity} style={styles.amenityItem}>
-                  <Icon
-                    color={selected ? colors.brandPurple : colors.textSecondary}
-                    name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={16}
-                  />
-                  <OptionChip
-                    isSelected={selected}
-                    label={amenity}
-                    onPress={() => toggleAmenity(amenity)}
-                  />
-                </View>
-              );
-            })}
-          </View>
+                return (
+                  <View key={amenity.id} style={styles.amenityItem}>
+                    <Icon
+                      color={selected ? colors.brandPurple : colors.textSecondary}
+                      name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={16}
+                    />
+                    <OptionChip
+                      isSelected={selected}
+                      label={amenity.name}
+                      onPress={() => toggleAmenity(amenity.name)}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+          )}
           <FormField
             label="More Amenities"
             multiline

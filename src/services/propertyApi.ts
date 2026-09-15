@@ -1208,3 +1208,175 @@ export async function recordPropertyView(propertyId: string): Promise<void> {
     console.warn('recordPropertyView failed', error);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Property lead-action tracking: call / whatsapp / interested / contact / share.
+//
+// POST /properties/:propertyId/call, /whatsapp and /interested (propertyRouter,
+// gated by `propertyRouter.use(authenticate)` — auth: 'access') all validate against
+// propertyLeadActionSchema (property.validator.ts): contactName/contactMobile/
+// contactEmail/message/budgetMin/budgetMax/visitDate are ALL optional, so `{}` is a
+// valid body — none of them are needed for a plain button tap.
+//
+// Live-verified (2026-09-07) against http://3.109.54.6/api/v1/properties/1/{call,
+// whatsapp,interested} with a fresh buyer session: all three returned
+// 201 `{ contact: {...}, lead: {...} }`. Calling call -> whatsapp -> interested on the
+// SAME property from the SAME user returned the SAME `lead.id` every time —
+// leadService.createFromPropertyAction finds-or-updates one lead per (user, property)
+// pair rather than creating a new lead per action. Only `lead.id`/`lead.leadNo` are
+// surfaced via PropertyLeadActionResult below; the rest of `contact`/`lead` is
+// backend-internal CRM detail this app has no current use for, so it is intentionally
+// not fully normalized.
+//
+// call/whatsapp accompany a native intent (utils/propertyActions.ts's
+// callPropertyOwner/openWhatsAppForProperty, which open tel:/wa.me links via
+// Linking.openURL) that succeeds or fails independently of this tracking call, so a
+// tracking failure here is logged and swallowed rather than surfaced — same reasoning
+// as recordPropertyView above: it must never disrupt a native action the user already
+// took. interested has no such native fallback (this call IS the user-facing action),
+// so it propagates errors for the caller to catch and surface.
+//
+// NOTE: these are distinct from utils/propertyActions.ts's `callPropertyOwner`/
+// `openWhatsAppForProperty`/`shareProperty`, which open the native dialer/WhatsApp/
+// share sheet and are NOT renamed or touched here.
+// ---------------------------------------------------------------------------
+
+export interface PropertyLeadActionInput {
+  contactName?: string;
+  contactMobile?: string;
+  contactEmail?: string;
+  message?: string;
+  budgetMin?: number;
+  budgetMax?: number;
+  // ISO 8601 date string; propertyLeadActionSchema's `visitDate: z.coerce.date()`
+  // accepts a string and coerces it, so no client-side Date object is required.
+  visitDate?: string;
+}
+
+export interface PropertyLeadActionResult {
+  leadId: string;
+  leadNo?: string;
+}
+
+interface BackendLeadActionResponse {
+  lead?: {id: number | string; leadNo?: string | null} | null;
+}
+
+function normalizeLeadActionResult(
+  response: BackendLeadActionResponse | undefined,
+): PropertyLeadActionResult | undefined {
+  if (!response?.lead) {
+    return undefined;
+  }
+  return {
+    leadId: String(response.lead.id),
+    leadNo: response.lead.leadNo ?? undefined,
+  };
+}
+
+async function postPropertyLeadAction<TBody extends object>(
+  endpointTemplate: string,
+  propertyId: string,
+  body: TBody,
+): Promise<PropertyLeadActionResult | undefined> {
+  const endpoint = endpointTemplate.replace(':propertyId', propertyId);
+  const response = await apiRequest<BackendLeadActionResponse, TBody>({
+    endpoint,
+    method: 'POST',
+    body,
+    auth: 'access',
+  });
+  return normalizeLeadActionResult(response);
+}
+
+export async function trackPropertyCall(
+  propertyId: string,
+  input: PropertyLeadActionInput = {},
+): Promise<void> {
+  try {
+    await postPropertyLeadAction(ApiRouteService.properties.call, propertyId, input);
+  } catch (error) {
+    console.warn('trackPropertyCall failed', error);
+  }
+}
+
+export async function trackPropertyWhatsapp(
+  propertyId: string,
+  input: PropertyLeadActionInput = {},
+): Promise<void> {
+  try {
+    await postPropertyLeadAction(ApiRouteService.properties.whatsapp, propertyId, input);
+  } catch (error) {
+    console.warn('trackPropertyWhatsapp failed', error);
+  }
+}
+
+// The "I'm Interested" action itself — no accompanying native intent, so unlike
+// trackPropertyCall/trackPropertyWhatsapp above, failures are NOT swallowed here; the
+// caller (PropertyDetailScreen) awaits this and shows a success/failure toast.
+export async function markPropertyInterested(
+  propertyId: string,
+  input: PropertyLeadActionInput = {},
+): Promise<PropertyLeadActionResult | undefined> {
+  return postPropertyLeadAction(ApiRouteService.properties.interested, propertyId, input);
+}
+
+// ---------------------------------------------------------------------------
+// POST /properties/:propertyId/contact — contactPropertySchema. Same optional
+// contact/message fields as propertyLeadActionSchema above, plus `activityType`
+// (call/whatsapp/email/interested, defaults to "interested" server-side if omitted).
+// Live-verified (2026-09-07, property 1) with
+// { activityType: "email", message: "..." } -> 201 `{ contact: {...}, lead: {...} }`,
+// same lead-per-(user,property) reuse as call/whatsapp/interested above.
+//
+// No distinct "contact form" UI currently exists in PropertyDetailScreen or elsewhere
+// under src/screens (verified by search) that would call this — it is added ahead of
+// that screen being built, matching this module's established pattern of building
+// service functions ahead of screen wiring (see uploadPropertyMedia/getMyProperties
+// from earlier sub-pieces). Like markPropertyInterested, this has no accompanying
+// native intent, so it also propagates errors rather than swallowing them.
+// ---------------------------------------------------------------------------
+
+export interface PropertyContactInput extends PropertyLeadActionInput {
+  activityType?: 'call' | 'whatsapp' | 'email' | 'interested';
+}
+
+export async function trackPropertyContact(
+  propertyId: string,
+  input: PropertyContactInput = {},
+): Promise<PropertyLeadActionResult | undefined> {
+  return postPropertyLeadAction(ApiRouteService.properties.contact, propertyId, input);
+}
+
+// ---------------------------------------------------------------------------
+// POST /properties/:propertyId/share — sharePropertySchema. `channel` (1-50 chars) is
+// the only REQUIRED field across all five lead-action endpoints on this page;
+// `recipient` is optional. Live-verified (2026-09-07, property 1) with
+// { channel: "whatsapp" } -> 201 `{ share: {...}, lead: {...} }`.
+//
+// Accompanies the native share sheet (utils/propertyActions.ts's `shareProperty`,
+// which calls `Share.share(...)`) — React Native's Share.share() result does not
+// reliably report which app the user picked, so the caller passes a generic channel
+// value (e.g. "share") rather than a real per-app channel. Like call/whatsapp above,
+// a tracking failure here is swallowed rather than surfaced: the share sheet itself
+// is not gated on this call succeeding.
+// ---------------------------------------------------------------------------
+
+export async function trackPropertyShare(
+  propertyId: string,
+  channel: string,
+  recipient?: string,
+): Promise<void> {
+  const endpoint = ApiRouteService.properties.share.replace(':propertyId', propertyId);
+
+  try {
+    await apiRequest<BackendLeadActionResponse, {channel: string; recipient?: string}>({
+      endpoint,
+      method: 'POST',
+      body: {channel, recipient},
+      auth: 'access',
+    });
+  } catch (error) {
+    console.warn('trackPropertyShare failed', error);
+  }
+}

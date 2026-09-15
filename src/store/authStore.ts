@@ -1,8 +1,9 @@
 import {create} from 'zustand';
 
+import {registerForceLogoutHandler} from '@/api/authSession';
 import {
   clearLocalAuthSession,
-  logout as clearStoredSession,
+  notifyServerLogout,
   persistSession,
 } from '@/services/authApi';
 import {
@@ -39,6 +40,13 @@ interface AuthStore extends AuthSession {
   clearTransientAuth: () => void;
   login: (payload?: Partial<AuthSession>) => void;
   logout: () => Promise<void>;
+  /**
+   * Local-only session teardown: clears tokens/session and flips
+   * isLoggedIn to false without calling the server. Used by `logout` itself
+   * and by the central apiClient (via authSession.ts) when a token refresh
+   * fails and the app must be forced back to a logged-out state.
+   */
+  forceLogout: () => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
 
@@ -239,8 +247,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       selectedRole: payload?.selectedRole ?? payload?.user?.role,
       pendingMobile: payload?.user?.mobile,
     }),
-  logout: async () => {
-    await clearStoredSession();
+  forceLogout: async () => {
+    await clearLocalAuthSession();
     set({
       isBootstrapping: false,
       isLoggedIn: false,
@@ -252,6 +260,19 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       selectedRole: undefined,
       pendingMobile: undefined,
     });
+  },
+  logout: async () => {
+    const accessToken = get().token;
+
+    // Local logout (clear tokens/session, flip isLoggedIn) happens first and
+    // is awaited so the caller (the Logout button) sees the user logged out
+    // and redirected immediately.
+    await get().forceLogout();
+
+    // Server-side session invalidation is best-effort and runs in the
+    // background afterwards — it must never block or undo the local logout
+    // above, regardless of whether it succeeds or fails.
+    void notifyServerLogout(accessToken);
   },
   deleteAccount: async () => {
     await deleteRemoteAccount();
@@ -269,3 +290,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     });
   },
 }));
+
+// Lets the central apiClient force a local logout when a token refresh fails,
+// without apiClient importing this store directly (which would create a
+// circular import via authApi -> `@/api` -> apiClient). See
+// `src/api/authSession.ts`.
+registerForceLogoutHandler(() => useAuthStore.getState().forceLogout());

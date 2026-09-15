@@ -3,17 +3,18 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { PROPERTY_TYPES } from '@/constants/appConstants';
 import { colors } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
+import { useMasterOptions } from '@/hooks/useMasterOptions';
 import { usePropertyStore } from '@/store/propertyStore';
 import type { AddPropertyStackParamList, PropertyType } from '@/types';
 
 import {
   AddPropertyHeader,
   FormField,
+  InlineAsyncState,
   OptionChip,
   PrimaryButton,
   ScreenIntro,
@@ -46,6 +47,10 @@ export function AddPropertyBasicScreen({ navigation, route }: Props) {
   const updateDraft = usePropertyStore(state => state.updateDraft);
   const clearDraft = usePropertyStore(state => state.clearDraft);
   const [errorMessage, setErrorMessage] = useState('');
+  const propertyTypes = useMasterOptions(
+    'property-types',
+    'Unable to load property types right now.',
+  );
 
   useEffect(() => {
     if (
@@ -101,17 +106,28 @@ export function AddPropertyBasicScreen({ navigation, route }: Props) {
         />
 
         <Section title="Property Type">
-          <View style={styles.typeGrid}>
-            {PROPERTY_TYPES.map(type => (
-              <TypeOptionCard
-                icon={propertyTypeIcons[type]}
-                isSelected={draft.propertyType === type}
-                key={type}
-                label={type}
-                onPress={() => updateDraft({ propertyType: type })}
-              />
-            ))}
-          </View>
+          {propertyTypes.isLoading || propertyTypes.error ? (
+            <InlineAsyncState
+              error={propertyTypes.error}
+              isLoading={propertyTypes.isLoading}
+              loadingLabel="Loading property types..."
+              onRetry={propertyTypes.reload}
+            />
+          ) : (
+            <View style={styles.typeGrid}>
+              {propertyTypes.items.map(item => (
+                <TypeOptionCard
+                  icon={propertyTypeIcons[item.name as PropertyType] ?? 'business-outline'}
+                  isSelected={draft.propertyType === item.name}
+                  key={item.id}
+                  label={item.name}
+                  onPress={() =>
+                    updateDraft({ propertyType: item.name as PropertyType })
+                  }
+                />
+              ))}
+            </View>
+          )}
         </Section>
 
         <Section title="Listing Type">

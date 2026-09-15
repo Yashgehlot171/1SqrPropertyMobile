@@ -283,6 +283,38 @@ export async function logout(): Promise<void> {
   }
 }
 
+/**
+ * Fire-and-forget server-side session invalidation for the user-facing
+ * Logout action. Local logout (token/session clear + redirect) has already
+ * completed by the time this is called, so it deliberately:
+ *  - takes the access token as a snapshot instead of reading it from
+ *    tokenStorage (which is already cleared), so the backend can still
+ *    identify and invalidate the right session/device;
+ *  - uses `auth: 'none'` with a manual Authorization header so a 401 here
+ *    never triggers the central apiClient's refresh/forced-logout handling
+ *    (there is nothing left to refresh, and the app is already logged out);
+ *  - swallows every failure (network error, 401, 500, ...) since it must
+ *    never re-authenticate the user, show an error, or affect the local
+ *    logout that already happened.
+ */
+export async function notifyServerLogout(accessToken?: string): Promise<void> {
+  if (!accessToken) {
+    return;
+  }
+
+  try {
+    await apiRequest<null>({
+      endpoint: ApiRouteService.auth.logout,
+      method: 'POST',
+      auth: 'none',
+      headers: {Authorization: `Bearer ${accessToken}`},
+      showLoader: false,
+    });
+  } catch {
+    // Intentionally ignored — see comment above.
+  }
+}
+
 export async function logoutAll(): Promise<void> {
   try {
     await apiRequest<null>({

@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ActivityIndicator,
   KeyboardTypeOptions,
   Pressable,
   StyleSheet,
@@ -150,21 +151,103 @@ export function FormField({
 export function SelectField({
   label,
   value,
+  placeholder,
   required,
+  onPress,
+  disabled,
+  errorMessage,
 }: {
   label: string;
   value: string;
+  placeholder?: string;
   required?: boolean;
+  onPress?: () => void;
+  disabled?: boolean;
+  errorMessage?: string;
 }) {
+  const content = (
+    <View
+      style={[
+        styles.inputWrap,
+        errorMessage ? styles.inputError : null,
+        disabled ? styles.inputDisabled : null,
+      ]}
+    >
+      <Text
+        numberOfLines={1}
+        style={value ? styles.selectValue : styles.selectPlaceholder}
+      >
+        {value || placeholder || 'Select'}
+      </Text>
+      <Icon color={colors.textSecondary} name="chevron-down" size={16} />
+    </View>
+  );
+
   return (
     <View style={styles.field}>
       <FieldLabel label={label} required={required} />
-      <View style={styles.inputWrap}>
-        <Text style={styles.selectValue}>{value}</Text>
-        <Icon color={colors.textSecondary} name="chevron-down" size={16} />
-      </View>
+      {onPress ? (
+        <Pressable disabled={disabled} onPress={onPress}>
+          {content}
+        </Pressable>
+      ) : (
+        content
+      )}
+      {errorMessage ? (
+        <Text style={styles.errorText}>{errorMessage}</Text>
+      ) : null}
     </View>
   );
+}
+
+/**
+ * Shared loading/error/retry block for option pickers backed by live
+ * masterApi/locationApi data, matching the pattern already used in
+ * MyPropertiesScreen (ActivityIndicator while loading, inline message +
+ * retry button on failure).
+ */
+export function InlineAsyncState({
+  isLoading,
+  error,
+  onRetry,
+  loadingLabel,
+  emptyLabel,
+}: {
+  isLoading: boolean;
+  error?: string | null;
+  onRetry: () => void;
+  loadingLabel: string;
+  emptyLabel?: string;
+}) {
+  if (isLoading) {
+    return (
+      <View style={styles.inlineState}>
+        <ActivityIndicator color={colors.brandPurple} size="small" />
+        <Text style={styles.inlineStateText}>{loadingLabel}</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.inlineState}>
+        <Text style={styles.inlineStateText}>{error}</Text>
+        <Pressable onPress={onRetry} style={styles.inlineRetryButton}>
+          <Text style={styles.inlineRetryText}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (emptyLabel) {
+    return (
+      <View style={styles.inlineState}>
+        <Text style={styles.inlineStateText}>{emptyLabel}</Text>
+      </View>
+    );
+  }
+
+  return null;
 }
 
 export function OptionChip({
@@ -244,13 +327,26 @@ export function Section({
 export function PrimaryButton({
   label,
   onPress,
+  disabled,
+  loading,
 }: {
   label: string;
   onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
 }) {
+  const isDisabled = Boolean(disabled || loading);
   return (
-    <Pressable onPress={onPress} style={styles.primaryButton}>
-      <Text style={styles.primaryButtonText}>{label}</Text>
+    <Pressable
+      disabled={isDisabled}
+      onPress={onPress}
+      style={[styles.primaryButton, isDisabled && styles.primaryButtonDisabled]}
+    >
+      {loading ? (
+        <ActivityIndicator color={colors.white} size="small" />
+      ) : (
+        <Text style={styles.primaryButtonText}>{label}</Text>
+      )}
     </Pressable>
   );
 }
@@ -258,13 +354,29 @@ export function PrimaryButton({
 export function SecondaryTextButton({
   label,
   onPress,
+  disabled,
+  loading,
 }: {
   label: string;
   onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
 }) {
+  const isDisabled = Boolean(disabled || loading);
   return (
-    <Pressable onPress={onPress} style={styles.secondaryTextButton}>
-      <Text style={styles.secondaryText}>{label}</Text>
+    <Pressable
+      disabled={isDisabled}
+      onPress={onPress}
+      style={[
+        styles.secondaryTextButton,
+        isDisabled && styles.secondaryTextButtonDisabled,
+      ]}
+    >
+      {loading ? (
+        <ActivityIndicator color={colors.brandPurple} size="small" />
+      ) : (
+        <Text style={styles.secondaryText}>{label}</Text>
+      )}
     </Pressable>
   );
 }
@@ -393,6 +505,9 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: colors.error,
   },
+  inputDisabled: {
+    opacity: 0.6,
+  },
   input: {
     color: colors.textPrimary,
     flex: 1,
@@ -419,9 +534,37 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typography.fontSize.sm,
   },
+  selectPlaceholder: {
+    color: colors.textSecondary,
+    flex: 1,
+    fontSize: typography.fontSize.sm,
+  },
   errorText: {
     color: colors.error,
     fontSize: typography.fontSize.xs,
+  },
+  inlineState: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  inlineStateText: {
+    color: colors.textSecondary,
+    flex: 1,
+    fontSize: typography.fontSize.xs,
+  },
+  inlineRetryButton: {
+    borderColor: colors.brandPurple,
+    borderRadius: spacing.radiusMd,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  inlineRetryText: {
+    color: colors.brandPurple,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
   },
   chip: {
     alignItems: 'center',
@@ -493,10 +636,16 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.bold,
   },
+  primaryButtonDisabled: {
+    opacity: 0.6,
+  },
   secondaryTextButton: {
     alignItems: 'center',
     minHeight: 42,
     justifyContent: 'center',
+  },
+  secondaryTextButtonDisabled: {
+    opacity: 0.6,
   },
   secondaryText: {
     color: colors.brandPurple,

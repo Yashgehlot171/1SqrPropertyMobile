@@ -20,14 +20,20 @@ export function RemarkCard({remark, onEdit, onDelete}: RemarkCardProps) {
       <Text style={styles.meta}>
         {remark.addedBy} | {formatDate(remark.date)}
       </Text>
-      <View style={styles.actions}>
-        <Pressable onPress={onEdit} style={styles.action}>
-          <Text style={styles.actionText}>Edit</Text>
-        </Pressable>
-        <Pressable onPress={onDelete} style={styles.action}>
-          <Text style={[styles.actionText, styles.deleteText]}>Delete</Text>
-        </Pressable>
-      </View>
+      {onEdit || onDelete ? (
+        <View style={styles.actions}>
+          {onEdit ? (
+            <Pressable onPress={onEdit} style={styles.action}>
+              <Text style={styles.actionText}>Edit</Text>
+            </Pressable>
+          ) : null}
+          {onDelete ? (
+            <Pressable onPress={onDelete} style={styles.action}>
+              <Text style={[styles.actionText, styles.deleteText]}>Delete</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }

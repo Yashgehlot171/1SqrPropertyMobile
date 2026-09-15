@@ -1,6 +1,9 @@
 import {baseConfig} from '@/config/base-config';
 import {ApiRouteService} from '@/config/app-reference';
+import {ROUTES} from '@/constants/routes';
+import {resetAndNavigate} from '@/navigation/NavigationService';
 
+import {runForceLogoutHandler} from './authSession';
 import {apiLoader} from './loader';
 import {parseApiResponse} from './responseParser';
 import {tokenStorage} from './tokenStorage';
@@ -104,6 +107,45 @@ async function refreshAccessToken(): Promise<boolean> {
   return true;
 }
 
+// Concurrent requests that all hit a 401 around the same time must share a
+// single in-flight refresh attempt instead of each independently calling the
+// refresh endpoint.
+let inFlightRefresh: Promise<boolean> | null = null;
+
+function refreshAccessTokenOnce(): Promise<boolean> {
+  if (!inFlightRefresh) {
+    inFlightRefresh = refreshAccessToken().finally(() => {
+      inFlightRefresh = null;
+    });
+  }
+
+  return inFlightRefresh;
+}
+
+// Likewise, a burst of concurrent 401s whose refresh attempt fails must only
+// force the app into a logged-out state and redirect to Login once.
+let inFlightForcedLogout: Promise<void> | null = null;
+
+function forceLogoutOnce(): Promise<void> {
+  if (!inFlightForcedLogout) {
+    inFlightForcedLogout = (async () => {
+      await runForceLogoutHandler();
+
+      // Deferred so the RootNavigator has a chance to re-render into
+      // AuthNavigator (driven by the store's isLoggedIn flag) before this
+      // dispatch runs — resetting to a screen that isn't mounted yet would
+      // otherwise be a no-op.
+      setTimeout(() => {
+        resetAndNavigate(ROUTES.root.auth, {screen: ROUTES.auth.login});
+      }, 0);
+    })().finally(() => {
+      inFlightForcedLogout = null;
+    });
+  }
+
+  return inFlightForcedLogout;
+}
+
 export async function apiRequest<TResponse, TBody = unknown>(
   options: ApiRequestOptions<TBody>,
 ): Promise<TResponse> {
@@ -131,14 +173,23 @@ export async function apiRequest<TResponse, TBody = unknown>(
     if (
       response.status === 401 &&
       (options.auth ?? 'access') === 'access' &&
-      endpoint !== ApiRouteService.auth.refreshToken &&
-      (await refreshAccessToken())
+      endpoint !== ApiRouteService.auth.refreshToken
     ) {
-      response = await fetchWithTimeout(buildUrl(endpoint), {
-        method,
-        headers: await buildHeaders(options),
-        body: requestBody,
-      });
+      const refreshed = await refreshAccessTokenOnce();
+
+      if (refreshed) {
+        response = await fetchWithTimeout(buildUrl(endpoint), {
+          method,
+          headers: await buildHeaders(options),
+          body: requestBody,
+        });
+      } else {
+        // Refresh token is invalid/expired (or the refresh call itself
+        // failed) — tokens are already cleared inside refreshAccessToken.
+        // Force the app back to a logged-out state exactly once, even if
+        // several requests hit this branch concurrently.
+        await forceLogoutOnce();
+      }
     }
 
     return parseApiResponse<TResponse>(response);
