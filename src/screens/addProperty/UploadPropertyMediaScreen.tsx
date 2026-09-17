@@ -120,7 +120,8 @@ export function UploadPropertyMediaScreen({ navigation, route }: Props) {
       setShowMediaError(true);
       return;
     }
-    navigation.navigate(ROUTES.addProperty.propertyPreview, {
+    // replace(), not navigate(): see AddPropertyBasicScreen's handleNext for why.
+    navigation.replace(ROUTES.addProperty.propertyPreview, {
       propertyId: route.params?.propertyId,
     });
   };
@@ -132,7 +133,11 @@ export function UploadPropertyMediaScreen({ navigation, route }: Props) {
         showsVerticalScrollIndicator={false}
       >
         <AddPropertyHeader
-          onBackPress={navigation.goBack}
+          onBackPress={() =>
+            navigation.replace(ROUTES.addProperty.addPropertyDetails, {
+              propertyId: route.params?.propertyId,
+            })
+          }
           step={4}
           title="Add Property"
         />

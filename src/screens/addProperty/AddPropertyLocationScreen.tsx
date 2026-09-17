@@ -176,7 +176,8 @@ export function AddPropertyLocationScreen({ navigation, route }: Props) {
     }
 
     setErrorMessage('');
-    navigation.navigate(ROUTES.addProperty.addPropertyDetails, {
+    // replace(), not navigate(): see AddPropertyBasicScreen's handleNext for why.
+    navigation.replace(ROUTES.addProperty.addPropertyDetails, {
       propertyId: route.params?.propertyId,
     });
   };
@@ -275,7 +276,11 @@ export function AddPropertyLocationScreen({ navigation, route }: Props) {
         showsVerticalScrollIndicator={false}
       >
         <AddPropertyHeader
-          onBackPress={navigation.goBack}
+          onBackPress={() =>
+            navigation.replace(ROUTES.addProperty.addPropertyBasic, {
+              propertyId: route.params?.propertyId,
+            })
+          }
           step={2}
           title="Add Property"
         />

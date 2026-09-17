@@ -3,6 +3,7 @@ import {
   Animated,
   ImageBackground,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -82,6 +83,12 @@ export function SplashScreen({ navigation }: Props) {
       style={styles.background}
       imageStyle={styles.backgroundImage}
     >
+      {/* Overrides the app-wide dark-content default: full-bleed dark hero image, no SafeAreaView, needs light icons. */}
+      <StatusBar
+        backgroundColor="transparent"
+        barStyle="light-content"
+        translucent
+      />
       <View style={styles.overlay}>
         <View style={styles.centerContent}>
           <Animated.Image

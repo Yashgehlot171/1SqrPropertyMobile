@@ -129,7 +129,11 @@ export function HomeDashboardScreen({ navigation }: Props) {
         <View style={styles.header}>
           <Pressable style={styles.locationButton}>
             <Icon color={colors.brandPurple} name="location" size={18} />
-            <Text style={styles.locationText}>{user?.city ?? 'Lucknow'}</Text>
+            {/* `||` (not `??`) so a real but empty city string ("") also
+              falls back — city is always a string on UserProfile, so the
+              only case `||` changes vs `??` here is empty-string, which
+              should fall back too. */}
+            <Text style={styles.locationText}>{user?.city || 'Lucknow'}</Text>
             <Icon color={colors.textPrimary} name="chevron-down" size={14} />
           </Pressable>
           <View style={styles.headerActions}>

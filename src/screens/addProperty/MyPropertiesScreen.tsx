@@ -40,17 +40,24 @@ import {showToast} from '@/utils/toast';
 
 type Props = NativeStackScreenProps<AddPropertyStackParamList, 'MyProperties'>;
 
-const propertyImages: ImageSourcePropType[] = [
-  require('@/assets/images/home1.jpg'),
-  require('@/assets/images/homeimage2.jpg'),
-  require('@/assets/images/homeimage3.jpg'),
-];
+// Sole fallback for a property with no uploaded images at all (not a hash-based
+// placeholder anymore — every property used to render one of 3 fixed images
+// regardless of its real media, same bug already fixed in CompactPropertyCard).
+const fallbackImage = require('@/assets/images/home1.jpg');
 
-function getPropertyImage(propertyId: string) {
-  const numericId = Number(propertyId.replace(/[^0-9]/g, ''));
-  return propertyImages[
-    (Number.isFinite(numericId) ? numericId : 1) % propertyImages.length
-  ];
+function getPropertyImage(property: Property): ImageSourcePropType {
+  // Prefer the backend-flagged primary/cover image; fall back to the first
+  // available image (array order is not guaranteed to match "primary" intent),
+  // and only fall back to the placeholder when no usable image exists at all.
+  const primaryImage = property.media.find(
+    item => item.type === 'image' && item.isPrimary && item.uri,
+  );
+  const fallbackFirstImage = property.media.find(
+    item => item.type === 'image' && item.uri,
+  );
+  const resolvedImage = primaryImage ?? fallbackFirstImage;
+  const result = resolvedImage ? {uri: resolvedImage.uri} : fallbackImage;
+  return result;
 }
 
 export function MyPropertiesScreen({navigation}: Props) {
@@ -189,7 +196,7 @@ export function MyPropertiesScreen({navigation}: Props) {
           <MyPropertyCard
             key={property.id}
             expanded={expandedPropertyId === property.id}
-            imageSource={getPropertyImage(property.id)}
+            imageSource={getPropertyImage(property)}
             onDelete={() => setSelectedProperty(property)}
             onEdit={() => {
               // Pass the already-fetched real property straight through so the
@@ -274,11 +281,6 @@ function MyPropertyCard({
   onDelete: () => void;
   onStatusChange: (status: PropertyLifecycleStatus) => void;
 }) {
-  const numericId = Number(property.id.replace(/[^0-9]/g, '')) || 1;
-  const views = numericId * 90 + 30;
-  const leads = numericId * 14 + 4;
-  const calls = numericId * 3 + 6;
-
   return (
     <View style={styles.propertyCard}>
       <Pressable onPress={onView} style={styles.propertyMain}>
@@ -314,12 +316,9 @@ function MyPropertyCard({
         </View>
       </Pressable>
 
-      <View style={styles.metricsRow}>
-        <Metric label="Views" value={views} />
-        <Metric label="Leads" value={leads} />
-        <Metric label="Calls" value={calls} />
-      </View>
-
+      {/* Views/Leads/Calls metrics removed: they were a fake numericId-based
+          formula, not real data — the /me/properties list endpoint doesn't
+          return per-property stats yet. Don't re-add a similar formula. */}
       <View style={styles.cardActions}>
         <Action icon="create-outline" label="Edit" onPress={onEdit} />
         <Action icon="megaphone-outline" label="Promote" onPress={onPromote} />
@@ -354,15 +353,6 @@ function MyPropertyCard({
           </View>
         </View>
       ) : null}
-    </View>
-  );
-}
-
-function Metric({label, value}: {label: string; value: number}) {
-  return (
-    <View style={styles.metric}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
     </View>
   );
 }
@@ -451,7 +441,7 @@ const styles = StyleSheet.create({
   },
   imageWrap: {
     width: 112,
-    minHeight: 116,
+    height: 116,
     borderRadius: spacing.radiusMd,
     overflow: 'hidden',
     backgroundColor: colors.mapSurface,
@@ -459,6 +449,7 @@ const styles = StyleSheet.create({
   propertyImage: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
   },
   statusBadge: {
     position: 'absolute',
@@ -512,32 +503,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.fontSize.xs,
   },
-  metricsRow: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.divider,
-  },
-  metric: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderRightWidth: 1,
-    borderRightColor: colors.divider,
-  },
-  metricLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.fontSize.xs,
-  },
-  metricValue: {
-    color: colors.textPrimary,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
-    marginTop: spacing.xs,
-  },
   cardActions: {
     flexDirection: 'row',
     minHeight: 46,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
   },
   action: {
     flex: 1,

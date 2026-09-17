@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  Image,
-  ImageSourcePropType,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 import { colors } from '@/constants/colors';
@@ -15,17 +8,24 @@ import { typography } from '@/constants/typography';
 import type { Property } from '@/types';
 import { formatCurrency } from '@/utils/formatCurrency';
 
-const propertyImages: ImageSourcePropType[] = [
-  require('@/assets/images/home1.jpg'),
-  require('@/assets/images/homeimage2.jpg'),
-  require('@/assets/images/homeimage3.jpg'),
-];
+// Sole fallback for a property with no uploaded images at all (not a hash-based
+// placeholder anymore — every property used to render one of these 3 regardless of
+// its real media).
+const fallbackImage = require('@/assets/images/home1.jpg');
 
-function getPropertyImage(propertyId: string) {
-  const numericId = Number(propertyId.replace(/[^0-9]/g, ''));
-  return propertyImages[
-    (Number.isFinite(numericId) ? numericId : 1) % propertyImages.length
-  ];
+function getPropertyImage(property: Property) {
+  // Prefer the backend-flagged primary/cover image; fall back to the first
+  // available image (array order is not guaranteed to match "primary" intent),
+  // and only fall back to the placeholder when no usable image exists at all.
+  const primaryImage = property.media.find(
+    item => item.type === 'image' && item.isPrimary && item.uri,
+  );
+  const fallbackFirstImage = property.media.find(
+    item => item.type === 'image' && item.uri,
+  );
+  const resolvedImage = primaryImage ?? fallbackFirstImage;
+  const result = resolvedImage ? { uri: resolvedImage.uri } : fallbackImage;
+  return result;
 }
 
 interface CompactPropertyCardProps {
@@ -52,7 +52,7 @@ export function CompactPropertyCard({
   return (
     <Pressable onPress={onPress} style={styles.card}>
       <View style={styles.imageWrap}>
-        <Image source={getPropertyImage(property.id)} style={styles.image} />
+        <Image source={getPropertyImage(property)} style={styles.image} />
         <Pressable
           disabled={isSavePending}
           onPress={onToggleSave}
@@ -69,6 +69,7 @@ export function CompactPropertyCard({
             <StatusPill color="success" label="Verified" />
           ) : null}
           <StatusPill color="primary" label={property.ownerType} />
+          <StatusPill color="primary" label={property.listingType} />
         </View>
       </View>
 
@@ -95,7 +96,12 @@ export function CompactPropertyCard({
         </Text>
         <Text style={styles.price}>{formatCurrency(property.price)}</Text>
         <Text style={styles.meta}>
+          {property.bhk ? `${property.bhk} | ` : ''}
           {property.areaSqFt} sq ft | {property.propertyType}
+        </Text>
+        <Text numberOfLines={1} style={styles.meta}>
+          {property.readyState}
+          {property.facing ? ` | ${property.facing} Facing` : ''}
         </Text>
         <View style={styles.actions}>
           <ActionButton icon="call-outline" label="Call" onPress={onCall} />
@@ -171,11 +177,12 @@ const styles = StyleSheet.create({
   },
   imageWrap: {
     width: 142,
-    minHeight: 156,
+    height: 156,
   },
   image: {
     height: '100%',
     width: '100%',
+    resizeMode: 'cover',
   },
   saveButton: {
     alignItems: 'center',

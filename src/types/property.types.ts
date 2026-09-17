@@ -41,6 +41,7 @@ export interface PropertyMedia {
   type: 'image' | 'video';
   uri: string;
   thumbnail?: string;
+  isPrimary?: boolean;
 }
 
 export interface Property {

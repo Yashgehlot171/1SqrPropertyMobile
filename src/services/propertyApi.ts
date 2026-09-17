@@ -285,6 +285,10 @@ function normalizeMedia(raw: BackendProperty): PropertyMedia[] {
     id: String(image.id),
     type: 'image',
     uri: image.file?.url ?? '',
+    // image.isPrimary is boolean | null | undefined on the raw backend shape;
+    // `?? undefined` collapses null to undefined so this matches PropertyMedia's
+    // boolean | undefined field while leaving true/false untouched.
+    isPrimary: image.isPrimary ?? undefined,
   }));
 
   const videos: PropertyMedia[] = (raw.media?.videos ?? []).map(video => ({

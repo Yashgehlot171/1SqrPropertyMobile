@@ -82,7 +82,9 @@ export function AddPropertyBasicScreen({ navigation, route }: Props) {
     }
 
     setErrorMessage('');
-    navigation.navigate(ROUTES.addProperty.addPropertyLocation, {
+    // replace(), not navigate(): keeps this wizard's stack at one entry per step
+    // instead of piling up history (see the other addProperty screens' Next/Back).
+    navigation.replace(ROUTES.addProperty.addPropertyLocation, {
       propertyId: route.params?.propertyId,
     });
   };

@@ -10,9 +10,10 @@ function App(): React.JSX.Element {
   return (
     <GestureHandlerRootView style={{flex: 1}}>
       <SafeAreaProvider>
+        {/* Android 15+ (SDK 36) ignores StatusBar.backgroundColor (edge-to-edge enforced) — every screen's own light top background is what actually shows, so dark-content is the correct global default. SplashScreen overrides locally (dark hero image). */}
         <StatusBar
-          backgroundColor={Colors.primary}
-          barStyle="light-content"
+          backgroundColor={Colors.white}
+          barStyle="dark-content"
         />
         <AppNavigator />
       </SafeAreaProvider>

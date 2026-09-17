@@ -71,6 +71,16 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
     );
   }
 
+  // `draft.media` may hold local file:// / content:// URIs (freshly picked, not yet
+  // uploaded) for a new draft, or remote https:// URIs (already normalized by
+  // normalizeMedia in propertyApi.ts) for an existing property being edited. Both
+  // shapes carry the same PropertyMedia { type, uri } fields, so `source={{ uri }}`
+  // renders either uniformly; only fall back to the bundled asset when there is
+  // truly no image yet (empty array, or an entry with an empty `uri` string).
+  const previewImageUri = draft.media.find(
+    item => item.type === 'image' && item.uri,
+  )?.uri;
+
   const isExisting = Boolean(editorPropertyId);
   const submitLabel =
     draft.status === 'Draft'
@@ -105,11 +115,14 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
     setPublishError(null);
     setIsPublishing(true);
     try {
-      const saved = await persistProperty('Active');
+      // Non-admins can only create/update with initial status "draft" or "pending" (backend gate) — Publish submits for review, it doesn't go live.
+      const saved = await persistProperty('Pending');
       if (saved) {
         clearDraft();
         showToast(
-          isExisting ? 'Property updated.' : 'Property published.',
+          isExisting
+            ? 'Changes submitted for review.'
+            : 'Property submitted for review.',
         );
         navigation.replace(ROUTES.addProperty.myProperties);
       } else {
@@ -180,7 +193,11 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
         showsVerticalScrollIndicator={false}
       >
         <AddPropertyHeader
-          onBackPress={navigation.goBack}
+          onBackPress={() =>
+            navigation.replace(ROUTES.addProperty.uploadPropertyMedia, {
+              propertyId: route.params?.propertyId,
+            })
+          }
           step={5}
           title="Add Property"
         />
@@ -194,7 +211,11 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
           <Text style={styles.previewTitle}>Preview</Text>
           <View style={styles.imageWrap}>
             <Image
-              source={require('@/assets/images/home1.jpg')}
+              source={
+                previewImageUri
+                  ? { uri: previewImageUri }
+                  : require('@/assets/images/home1.jpg')
+              }
               style={styles.previewImage}
             />
             <View style={styles.previewBadges}>
@@ -228,6 +249,13 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
         </View>
 
         <View style={styles.summary}>
+          <Text style={styles.summaryTitle}>Description</Text>
+          <Text style={styles.descriptionText}>
+            {draft.description || 'No description added.'}
+          </Text>
+        </View>
+
+        <View style={styles.summary}>
           <Text style={styles.summaryTitle}>Summary</Text>
           <PreviewRow label="Property Type" value={draft.propertyType} />
           <PreviewRow label="Listing Type" value={draft.listingType} />
@@ -238,13 +266,42 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
             }`}
           />
           <PreviewRow
+            label="Address"
+            value={draft.location.address || 'Not added'}
+          />
+          <PreviewRow
+            label="Landmark"
+            value={draft.location.district || 'Not added'}
+          />
+          <PreviewRow
+            label="Pincode"
+            value={draft.location.pincode || 'Not added'}
+          />
+          <PreviewRow
             label="Size"
             value={draft.areaSqFt ? `${draft.areaSqFt} sq ft` : 'Not added'}
           />
+          {draft.bhk ? <PreviewRow label="BHK" value={draft.bhk} /> : null}
           <PreviewRow label="Facing" value={draft.facing || 'Not added'} />
+          <PreviewRow
+            label="Road Width"
+            value={draft.roadWidthFt ? `${draft.roadWidthFt} ft` : 'Not added'}
+          />
+          <PreviewRow
+            label="Furnishing"
+            value={draft.furnishing || 'Not added'}
+          />
+          <PreviewRow label="Ready State" value={draft.readyState} />
+          <PreviewRow label="Ownership Type" value={draft.ownerType} />
           <PreviewRow
             label="Registry"
             value={draft.verified ? 'Registry Ready' : 'Not Ready'}
+          />
+          <PreviewRow
+            label="Amenities"
+            value={
+              draft.amenities.length ? draft.amenities.join(', ') : 'None added'
+            }
           />
           <PreviewRow label="Photos" value={String(draft.media.length)} />
           <PreviewRow
@@ -433,6 +490,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.bold,
+  },
+  descriptionText: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.sm,
+    lineHeight: typography.lineHeight.sm,
   },
   row: {
     flexDirection: 'row',

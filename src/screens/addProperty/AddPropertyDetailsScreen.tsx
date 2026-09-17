@@ -98,7 +98,11 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
         showsVerticalScrollIndicator={false}
       >
         <AddPropertyHeader
-          onBackPress={navigation.goBack}
+          onBackPress={() =>
+            navigation.replace(ROUTES.addProperty.addPropertyLocation, {
+              propertyId: route.params?.propertyId,
+            })
+          }
           step={3}
           title="Add Property"
         />
@@ -320,7 +324,8 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
         <PrimaryButton
           label="Save & Next"
           onPress={() =>
-            navigation.navigate(ROUTES.addProperty.uploadPropertyMedia, {
+            // replace(), not navigate(): see AddPropertyBasicScreen's handleNext for why.
+            navigation.replace(ROUTES.addProperty.uploadPropertyMedia, {
               propertyId: route.params?.propertyId,
             })
           }

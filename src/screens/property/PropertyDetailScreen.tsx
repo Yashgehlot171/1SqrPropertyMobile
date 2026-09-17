@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  FlatList,
   Image,
-  ImageSourcePropType,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,7 +29,11 @@ import {
 } from '@/services/propertyApi';
 import { usePropertyStore } from '@/store/propertyStore';
 import { useSavedStore } from '@/store/savedStore';
-import type { HomeStackParamList, SavedStackParamList } from '@/types';
+import type {
+  HomeStackParamList,
+  PropertyMedia,
+  SavedStackParamList,
+} from '@/types';
 import { formatCurrency } from '@/utils/formatCurrency';
 import {
   callPropertyOwner,
@@ -40,11 +46,19 @@ type Props =
   | NativeStackScreenProps<HomeStackParamList, 'PropertyDetail'>
   | NativeStackScreenProps<SavedStackParamList, 'PropertyDetail'>;
 
-const detailImages: ImageSourcePropType[] = [
-  require('@/assets/images/homeimage3.jpg'),
-  require('@/assets/images/homeimage2.jpg'),
-  require('@/assets/images/home1.jpg'),
-];
+// Sole fallback for a property with no uploaded images at all, and per-slide
+// fallback for any individual carousel image whose uri is empty/null (an old
+// pre-backend-fix upload) so a single broken image never breaks the carousel.
+const fallbackImage = require('@/assets/images/home1.jpg');
+
+// Matches styles.gallery.height below; pulled out as a constant so the carousel's
+// per-slide width/height math (which needs a real number, not a StyleSheet
+// percentage) stays in sync with the gallery container's fixed height.
+const GALLERY_HEIGHT = 220;
+
+function resolveGalleryImageSource(item: PropertyMedia) {
+  return item.uri ? { uri: item.uri } : fallbackImage;
+}
 
 export function PropertyDetailScreen({ navigation, route }: Props) {
   const stackNavigation = navigation as any;
@@ -65,6 +79,12 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
   // pendingIds-in-a-store machinery from savedStore (built for optimistic-then-
   // rollback toggles) would be overkill for this milder failure mode.
   const [isInterestPending, setIsInterestPending] = useState(false);
+  // Active slide in the image carousel below, and the carousel's measured pixel
+  // width (needed because a horizontal FlatList's row content container sizes to
+  // its children, so a percentage width on each slide's Image is ambiguous —
+  // each slide needs an explicit numeric width from the container's own layout).
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [galleryWidth, setGalleryWidth] = useState(0);
 
   const property = properties.find(item => item.id === route.params.propertyId);
 
@@ -77,6 +97,15 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
       recordPropertyView(property.id);
     }
   }, [addRecentlyViewed, property]);
+
+  // PropertyDetailScreen's instance is reused (not remounted) when navigating from
+  // one property's "Similar Properties" card to another property's detail screen
+  // (native-stack updates params in place rather than pushing a new instance), so
+  // the carousel's active slide must be reset explicitly per property, or a
+  // previously-viewed property's mid-carousel index would leak into the next one.
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [property?.id]);
 
   const similarProperties = useMemo(
     () =>
@@ -108,6 +137,12 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
     );
   }
 
+  // All uploaded images, in backend sortOrder (normalizeMedia preserves array
+  // order from the raw response) — the carousel below renders every one of these,
+  // not just a single "main" image.
+  const galleryImages = property.media.filter(item => item.type === 'image');
+  const hasCarousel = galleryImages.length > 1;
+
   const isSaved = favouriteIds.includes(property.id);
   const isSavePending = pendingIds.has(property.id);
 
@@ -115,6 +150,22 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
     stackNavigation.navigate(ROUTES.home.propertyGallery, {
       propertyId: property.id,
     });
+  };
+
+  const handleGalleryMomentumScrollEnd = (
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    if (!galleryWidth) {
+      return;
+    }
+    const rawIndex = Math.round(
+      event.nativeEvent.contentOffset.x / galleryWidth,
+    );
+    const clampedIndex = Math.max(
+      0,
+      Math.min(rawIndex, galleryImages.length - 1),
+    );
+    setActiveImageIndex(clampedIndex);
   };
 
   const saveProperty = () => {
@@ -213,13 +264,59 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable onPress={navigateToGallery} style={styles.gallery}>
-          <Image source={detailImages[0]} style={styles.galleryImage} />
+        <Pressable
+          onLayout={event => setGalleryWidth(event.nativeEvent.layout.width)}
+          onPress={navigateToGallery}
+          style={styles.gallery}
+        >
+          {hasCarousel ? (
+            <FlatList
+              data={galleryImages}
+              horizontal
+              keyExtractor={item => item.id}
+              onMomentumScrollEnd={handleGalleryMomentumScrollEnd}
+              pagingEnabled
+              renderItem={({ item }) => (
+                <Image
+                  source={resolveGalleryImageSource(item)}
+                  style={[styles.galleryImage, { width: galleryWidth }]}
+                />
+              )}
+              showsHorizontalScrollIndicator={false}
+              style={styles.galleryCarousel}
+            />
+          ) : (
+            <Image
+              source={
+                galleryImages.length === 1
+                  ? resolveGalleryImageSource(galleryImages[0])
+                  : fallbackImage
+              }
+              style={styles.galleryImage}
+            />
+          )}
+          {hasCarousel ? (
+            <View pointerEvents="none" style={styles.galleryDots}>
+              {galleryImages.map((item, index) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.galleryDot,
+                    index === activeImageIndex ? styles.galleryDotActive : null,
+                  ]}
+                />
+              ))}
+            </View>
+          ) : null}
           <View style={styles.galleryButton}>
             <Icon color={colors.white} name="camera-outline" size={18} />
           </View>
           <View style={styles.galleryCount}>
-            <Text style={styles.galleryCountText}>1/12</Text>
+            <Text style={styles.galleryCountText}>
+              {galleryImages.length > 0
+                ? `${activeImageIndex + 1}/${galleryImages.length}`
+                : '1/12'}
+            </Text>
           </View>
         </Pressable>
 
@@ -314,6 +411,8 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
             }
           />
           <SpecRow label="Address" value={property.location.address ?? 'N/A'} />
+          <SpecRow label="Landmark" value={property.location.district ?? 'N/A'} />
+          <SpecRow label="Pincode" value={property.location.pincode ?? 'N/A'} />
         </DetailSection>
 
         <View style={styles.ownerCard}>
@@ -557,13 +656,37 @@ const styles = StyleSheet.create({
     paddingBottom: 112,
   },
   gallery: {
-    height: 220,
+    height: GALLERY_HEIGHT,
     marginHorizontal: spacing.lg,
   },
   galleryImage: {
     borderRadius: spacing.radiusLg,
     height: '100%',
     width: '100%',
+  },
+  galleryCarousel: {
+    height: '100%',
+    width: '100%',
+  },
+  galleryDots: {
+    alignItems: 'center',
+    bottom: spacing.md,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    justifyContent: 'center',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+  },
+  galleryDot: {
+    backgroundColor: colors.white,
+    borderRadius: 3,
+    height: 6,
+    opacity: 0.5,
+    width: 6,
+  },
+  galleryDotActive: {
+    opacity: 1,
   },
   galleryButton: {
     alignItems: 'center',
