@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -13,7 +12,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 import { showApiError } from '@/api';
-import { BottomSheet } from '@/components';
+import { BottomSheet, KeyboardAwareScrollView } from '@/components';
 import { colors } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { spacing } from '@/constants/spacing';
@@ -270,7 +269,7 @@ export function AddPropertyLocationScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -361,7 +360,7 @@ export function AddPropertyLocationScreen({ navigation, route }: Props) {
         </View>
 
         <PrimaryButton label="Save & Next" onPress={handleNext} />
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <BottomSheet onClose={closePicker} visible={Boolean(activeConfig)}>
         {activeConfig ? (
@@ -410,7 +409,9 @@ export function AddPropertyLocationScreen({ navigation, route }: Props) {
               />
             ) : (
               <View style={styles.pickerState}>
-                <Text style={styles.pickerStateText}>No options available.</Text>
+                <Text style={styles.pickerStateText}>
+                  No options available.
+                </Text>
               </View>
             )}
           </View>

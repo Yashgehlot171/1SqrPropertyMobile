@@ -1,3 +1,5 @@
+import { useRemoteLoad } from '@/hooks/useRemoteFlow';
+import { RemoteStatus } from '@/components/common/RemoteStatus';
 import React, { useMemo, useState } from 'react';
 import {
   Pressable,
@@ -11,7 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-import { CompactPropertyCard, EmptyState } from '@/components';
+import {
+  CompactPropertyCard,
+  EmptyState,
+  KeyboardAwareScrollView,
+} from '@/components';
 import { ROUTES } from '@/constants/routes';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
@@ -31,6 +37,10 @@ type Props = NativeStackScreenProps<HomeStackParamList, 'PropertyListing'>;
 
 export function PropertyListingScreen({ navigation, route }: Props) {
   const [query, setQuery] = useState(route.params?.query ?? '');
+  const loadRemote = usePropertyStore(state => state.load);
+  const remoteLoading = usePropertyStore(state => state.loading);
+  const remoteError = usePropertyStore(state => state.error);
+  useRemoteLoad(loadRemote);
   const properties = usePropertyStore(state => state.properties);
   const filters = usePropertyStore(state => state.filters);
   const setFilters = usePropertyStore(state => state.setFilters);
@@ -48,7 +58,12 @@ export function PropertyListingScreen({ navigation, route }: Props) {
   );
 
   const filteredProperties = useMemo(
-    () => filterProperties(properties, appliedFilters, category),
+    () =>
+      filterProperties(
+        properties.filter(item => item.status === 'Active'),
+        appliedFilters,
+        category,
+      ),
     [appliedFilters, category, properties],
   );
 
@@ -78,6 +93,13 @@ export function PropertyListingScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <RemoteStatus
+        loading={remoteLoading}
+        error={remoteError}
+        retry={() => {
+          void loadRemote().catch(() => {});
+        }}
+      />
       <View style={styles.header}>
         <Pressable onPress={navigation.goBack} style={styles.headerButton}>
           <Icon color={colors.textPrimary} name="chevron-back" size={22} />
@@ -94,7 +116,7 @@ export function PropertyListingScreen({ navigation, route }: Props) {
         </Pressable>
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -159,7 +181,7 @@ export function PropertyListingScreen({ navigation, route }: Props) {
                 onShare={() => {
                   shareProperty(property);
                 }}
-                onToggleSave={() => {
+                onToggleSave={async () => {
                   // Fire-and-forget, matching PropertyDetailScreen's convention:
                   // toggleFavourite (savedStore) applies its optimistic update to
                   // favouriteIds synchronously first, so the pre-toggle
@@ -167,7 +189,9 @@ export function PropertyListingScreen({ navigation, route }: Props) {
                   // tap. A failure is rolled back and surfaced by the store via
                   // showApiError, independent of this toast.
                   const wasSaved = favouriteIds.includes(property.id);
-                  toggleFavourite(property.id);
+                  if (!(await toggleFavourite(property.id))) {
+                    return;
+                  }
                   showToast(
                     wasSaved
                       ? 'Property removed from favourites.'
@@ -194,7 +218,7 @@ export function PropertyListingScreen({ navigation, route }: Props) {
             title="No properties found"
           />
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

@@ -1,155 +1,71 @@
 import {create} from 'zustand';
-
-import {mockLoanBanks, mockLoanRequests} from '@/data/mockLoans';
-import {generateId} from '@/services/serviceUtils';
-import type {LoanBank, LoanRequest, LoanStatus, UploadedDocument} from '@/types';
+import * as api from '@/services/loanApi';
+import {useAuthStore} from './authStore';
+import type {LoanRequest, LoanStatus, UploadedDocument, LoanBank} from '@/types';
 
 interface LoanStore {
-  banks: LoanBank[];
   requests: LoanRequest[];
-  addRequest: (payload: Omit<LoanRequest, 'id' | 'createdAt'>) => LoanRequest;
-  updateRequest: (requestId: string, updates: Partial<LoanRequest>) => void;
-  deleteRequest: (requestId: string) => void;
-  updateRequestStatus: (requestId: string, status: LoanStatus) => void;
-  addRemark: (requestId: string, text: string, addedBy?: string) => void;
-  editRemark: (requestId: string, remarkId: string, text: string) => void;
-  deleteRemark: (requestId: string, remarkId: string) => void;
-  addDocument: (
-    requestId: string,
-    document: Omit<UploadedDocument, 'id' | 'uploadedAt' | 'status'>,
-  ) => void;
-  removeDocument: (requestId: string, documentId: string) => void;
+  banks: LoanBank[];
+  loading: boolean;
+  error: string | null;
+  load: () => Promise<void>;
+  addRequest: (payload: Omit<LoanRequest, 'id' | 'createdAt'>) => Promise<LoanRequest>;
+  updateRequest: (id: string, payload: Partial<LoanRequest>) => Promise<void>;
+  deleteRequest: (id: string) => Promise<void>;
+  updateRequestStatus: (id: string, status: LoanStatus, remark?: string) => Promise<void>;
+  addRemark: (id: string, text: string) => Promise<void>;
+  editRemark: (id: string, remarkId: string, text: string) => Promise<void>;
+  deleteRemark: (id: string, remarkId: string) => Promise<void>;
+  addDocument: (id: string, document: UploadedDocument) => Promise<void>;
+  removeDocument: (id: string, documentId: string) => Promise<void>;
 }
-
-export const useLoanStore = create<LoanStore>(set => ({
-  banks: mockLoanBanks,
-  requests: mockLoanRequests,
-  addRequest: payload => {
-    const created: LoanRequest = {
-      ...payload,
-      id: generateId('loan'),
-      createdAt: new Date().toISOString(),
-    };
-
-    set(state => ({
-      requests: [created, ...state.requests],
-    }));
-
-    return created;
-  },
-  updateRequest: (requestId, updates) =>
-    set(state => ({
-      requests: state.requests.map(item =>
-        item.id === requestId ? {...item, ...updates} : item,
-      ),
-    })),
-  deleteRequest: requestId =>
-    set(state => ({
-      requests: state.requests.filter(item => item.id !== requestId),
-    })),
-  updateRequestStatus: (requestId, status) =>
-    set(state => ({
-      requests: state.requests.map(item =>
-        item.id === requestId
-          ? {
-              ...item,
-              status,
-              history: [
-                {
-                  id: generateId('loan-history'),
-                  status,
-                  updatedBy: 'Finance Team',
-                  updatedAt: new Date().toISOString(),
-                },
-                ...item.history,
-              ],
-            }
-          : item,
-      ),
-    })),
-  addRemark: (requestId, text, addedBy = 'Finance Team') =>
-    set(state => ({
-      requests: state.requests.map(item =>
-        item.id === requestId
-          ? {
-              ...item,
-              remarks: [
-                {
-                  id: generateId('loan-remark'),
-                  text,
-                  addedBy,
-                  date: new Date().toISOString(),
-                },
-                ...item.remarks,
-              ],
-            }
-          : item,
-      ),
-    })),
-  editRemark: (requestId, remarkId, text) =>
-    set(state => ({
-      requests: state.requests.map(item => {
-        if (item.id !== requestId) {
-          return item;
-        }
-
-        const remarks = item.remarks.map(remark =>
-          remark.id === remarkId
-            ? {
-                ...remark,
-                text,
-                date: new Date().toISOString(),
-              }
-            : remark,
-        );
-
-        return {
-          ...item,
-          remarks,
-        };
-      }),
-    })),
-  deleteRemark: (requestId, remarkId) =>
-    set(state => ({
-      requests: state.requests.map(item => {
-        if (item.id !== requestId) {
-          return item;
-        }
-
-        return {
-          ...item,
-          remarks: item.remarks.filter(remark => remark.id !== remarkId),
-        };
-      }),
-    })),
-  addDocument: (requestId, document) =>
-    set(state => ({
-      requests: state.requests.map(item =>
-        item.id === requestId
-          ? {
-              ...item,
-              documents: [
-                {
-                  ...document,
-                  id: generateId('loan-document'),
-                  uploadedAt: new Date().toISOString(),
-                  status: 'uploaded',
-                },
-                ...item.documents,
-              ],
-            }
-          : item,
-      ),
-    })),
-  removeDocument: (requestId, documentId) =>
-    set(state => ({
-      requests: state.requests.map(item =>
-        item.id === requestId
-          ? {
-              ...item,
-              documents: item.documents.filter(doc => doc.id !== documentId),
-            }
-          : item,
-      ),
-    })),
-}));
+let epoch = 0;
+const unsupported = async () => { throw new Error('This action is not available.'); };
+export const useLoanStore = create<LoanStore>((set, get) => {
+  const replace = (item: LoanRequest) => set(state => ({requests: state.requests.some(row => row.id === item.id)
+    ? state.requests.map(row => row.id === item.id ? item : row) : [item, ...state.requests]}));
+  const commit = async <T,>(work: () => Promise<T>, apply: (value: T) => void): Promise<T> => {
+    const started = epoch;
+    const value = await work();
+    if (started !== epoch) { throw new Error('Your session changed. Please try again.'); }
+    apply(value);
+    return value;
+  };
+  return {
+    requests: [], banks: [], loading: false, error: null,
+    load: async () => {
+      if (get().loading) { return; }
+      const started = epoch;
+      set({loading: true, error: null});
+      try {
+        const [items, options] = await Promise.all([api.getLoanRequests(), api.getLoanBanks()]);
+        if (started === epoch) { set({requests: items, banks: options, loading: false}); }
+      } catch (error) {
+        if (started === epoch) { set({loading: false, error: error instanceof Error ? error.message : 'Unable to load data.'}); }
+        throw error;
+      }
+    },
+    addRequest: payload => commit(() => api.addLoanRequest(payload), replace),
+    updateRequest: async (id, payload) => { await commit(() => api.updateLoanRequest(id, payload), replace); },
+    deleteRequest: async id => { await commit(() => api.deleteLoanRequest(id), () => set(state => ({requests: state.requests.filter(row => row.id !== id)}))); },
+    updateRequestStatus: unsupported,
+    addRemark: async (id, text) => { await commit(() => api.addLoanRemark(id, text), replace); },
+    editRemark: unsupported, deleteRemark: unsupported,
+    addDocument: async (id, document) => {
+      const item = get().requests.find(row => row.id === id);
+      if (!item) { throw new Error('Request no longer available.'); }
+      await get().updateRequest(id, {documents: [...item.documents, document]});
+    },
+    removeDocument: async (id, documentId) => {
+      const item = get().requests.find(row => row.id === id);
+      if (!item) { throw new Error('Request no longer available.'); }
+      await get().updateRequest(id, {documents: item.documents.filter(doc => doc.id !== documentId)});
+    },
+  };
+});
+useAuthStore.subscribe((state, previous) => {
+  if (state.user?.id !== previous.user?.id || state.isLoggedIn !== previous.isLoggedIn) {
+    epoch += 1;
+    useLoanStore.setState({requests: [], banks: [], loading: false, error: null});
+  }
+});

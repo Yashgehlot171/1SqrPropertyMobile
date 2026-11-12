@@ -1,4 +1,6 @@
-import React, {useMemo} from 'react';
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
+import React, {useCallback, useState} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
@@ -16,7 +18,7 @@ import {spacing} from '@/constants/spacing';
 import {typography} from '@/constants/typography';
 import {useLoanStore} from '@/store/loanStore';
 import type {ServicesStackParamList} from '@/types';
-import {calculateEmi} from '@/utils/emiCalculator';
+import {getEmiEstimate} from '@/services/calculatorApi';
 import {
   callFinanceTeam,
   shareEmiResult,
@@ -26,24 +28,29 @@ import {formatCurrency} from '@/utils/formatCurrency';
 type Props = NativeStackScreenProps<ServicesStackParamList, 'EmiResult'>;
 
 export function EmiResultScreen({navigation, route}: Props) {
+  const loadRemote = useLoanStore(state => state.load);
+  const remoteLoading = useLoanStore(state => state.loading);
+  const remoteError = useLoanStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
   const {loanAmount, interestRate, tenureYears, downPayment, bankId} =
     route.params;
   const banks = useLoanStore(state => state.banks);
   const selectedBank = banks.find(item => item.id === bankId);
-  const result = useMemo(
-    () =>
-      calculateEmi({
-        loanAmount,
-        interestRate,
-        tenureYears,
-        downPayment,
-      }),
-    [downPayment, interestRate, loanAmount, tenureYears],
-  );
+  const [result, setResult] = useState(route.params.result);
+  const [estimateError, setEstimateError] = useState<string | null>(null);
+  const loadEstimate = useCallback(async () => {
+    setEstimateError(null);
+    try { setResult(await getEmiEstimate({loanAmount, interestRate, tenureYears, downPayment})); }
+    catch (error) { setEstimateError(error instanceof Error ? error.message : 'Unable to calculate EMI.'); }
+  }, [loanAmount, interestRate, tenureYears, downPayment]);
+  useRemoteLoad(useCallback(async () => { if (!route.params.result) { await loadEstimate(); } }, [loadEstimate, route.params.result]));
   const financedAmount = Math.max(loanAmount - downPayment, 0);
 
+  if (!result) { return <ScreenContainer><AppHeader title="EMI Result" onBackPress={navigation.goBack} />
+    <RemoteStatus loading={!estimateError} error={estimateError} retry={() => { void loadEstimate(); }} /></ScreenContainer>; }
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="EMI Result"
         subtitle="Monthly payment and interest breakdown"

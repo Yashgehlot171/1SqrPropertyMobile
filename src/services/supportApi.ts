@@ -1,47 +1,38 @@
-import {mockSupportTickets} from '@/data/mockSupport';
-import type {SupportTicket} from '@/types';
-
-import {generateId, simulateNetwork} from './serviceUtils';
-
-let tickets = [...mockSupportTickets];
-
-export async function getSupportTickets(): Promise<SupportTicket[]> {
-  return simulateNetwork(tickets);
+import {apiRequest} from '@/api';
+import type {SupportTicket, SupportTicketStatus} from '@/types';
+import {getAllPages} from './remoteData';
+import {documents, remarks, documentIds, titleStatus} from './requestMapping';
+import type {RawRequest} from './requestMapping';
+const base = '/support-tickets';
+export async function getSupportCategories() { return getAllPages<{id: number; name: string}>('/masters/support-categories', 'none'); }
+export function normalizeSupport(raw: RawRequest): SupportTicket {
+  return {id: String(raw.id), issueType: raw.category?.name ?? '', relatedProperty: raw.relatedPropertyId ? String(raw.relatedPropertyId) : undefined,
+    subject: raw.subject ?? '', description: raw.description ?? '', status: titleStatus(raw.status ?? 'OPEN') as SupportTicketStatus,
+    documents: documents(raw), remarks: remarks(raw), history: (raw.statusHistory ?? []).map(item => ({
+      id: String(item.id), status: titleStatus(item.newStatus ?? '') as SupportTicketStatus,
+      updatedBy: String(item.changedById ?? ''), updatedAt: item.createdAt ?? '', note: item.remarks,
+    })), createdAt: raw.createdAt ?? ''};
 }
-
-export async function addSupportTicket(
-  payload: Omit<SupportTicket, 'id' | 'createdAt'>,
-): Promise<SupportTicket> {
-  const created: SupportTicket = {
-    ...payload,
-    id: generateId('ticket'),
-    createdAt: new Date().toISOString(),
-  };
-  tickets = [created, ...tickets];
-  return simulateNetwork(created);
+async function body(payload: Partial<SupportTicket>) {
+  const category = payload.issueType === undefined ? undefined : (await getSupportCategories()).find(item => item.name.toLowerCase() === payload.issueType?.toLowerCase());
+  if (payload.issueType && !category) { throw new Error('Select an available issue type.'); }
+  if (payload.relatedProperty && !/^[1-9][0-9]*$/.test(payload.relatedProperty)) { throw new Error('Enter a valid property ID.'); }
+  return {issueTypeId: category?.id, relatedPropertyId: payload.relatedProperty || undefined,
+    subject: payload.subject, description: payload.description, documentFileIds: documentIds(payload.documents)};
 }
-
-export async function updateSupportTicket(
-  ticketId: string,
-  updates: Partial<SupportTicket>,
-): Promise<SupportTicket | undefined> {
-  let updatedTicket: SupportTicket | undefined;
-
-  tickets = tickets.map(item => {
-    if (item.id !== ticketId) {
-      return item;
-    }
-
-    updatedTicket = {...item, ...updates};
-    return updatedTicket;
-  });
-
-  return simulateNetwork(updatedTicket);
+export async function getSupportTickets() { return (await getAllPages<RawRequest>(base)).map(normalizeSupport); }
+export async function getSupportTicket(id: string) { return normalizeSupport(await apiRequest<RawRequest>({endpoint: base + '/' + id})); }
+export async function addSupportTicket(payload: Omit<SupportTicket, 'id' | 'createdAt'>) {
+  return normalizeSupport(await apiRequest<RawRequest>({endpoint: base, method: 'POST', body: await body(payload)}));
 }
-
-export async function deleteSupportTicket(ticketId: string): Promise<boolean> {
-  tickets = tickets.filter(item => item.id !== ticketId);
-  return simulateNetwork(true);
+export async function updateSupportTicket(id: string, payload: Partial<SupportTicket>) {
+  await apiRequest({endpoint: base + '/' + id, method: 'PATCH', body: await body(payload)}); return getSupportTicket(id);
 }
-
-// Currently using static data. Replace this with real API integration later.
+export async function deleteSupportTicket(id: string) { await apiRequest({endpoint: base + '/' + id, method: 'DELETE'}); return true; }
+export async function addSupportRemark(id: string, remark: string) {
+  await apiRequest({endpoint: base + '/' + id + '/remarks', method: 'POST', body: {remark, visibility: 'public'}}); return getSupportTicket(id);
+}
+export async function updateSupportStatus(id: string, status: SupportTicketStatus, remark?: string) {
+  await apiRequest({endpoint: base + '/' + id + '/status', method: 'PATCH', body: {status: status.toUpperCase().replace(/ /g, '_'), remark}});
+  return getSupportTicket(id);
+}

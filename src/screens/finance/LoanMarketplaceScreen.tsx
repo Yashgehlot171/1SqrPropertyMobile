@@ -1,3 +1,5 @@
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
@@ -17,6 +19,11 @@ import {callFinanceTeam} from '@/utils/financeActions';
 type Props = NativeStackScreenProps<ServicesStackParamList, 'LoanMarketplace'>;
 
 export function LoanMarketplaceScreen({navigation}: Props) {
+  const loadRemote = useLoanStore(state => state.load);
+  const remoteLoading = useLoanStore(state => state.loading);
+  const remoteError = useLoanStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
   const banks = useLoanStore(state => state.banks);
   const [query, setQuery] = useState('');
 
@@ -43,7 +50,7 @@ export function LoanMarketplaceScreen({navigation}: Props) {
   );
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Loan Marketplace"
         subtitle="Compare lenders, team details and application routes"

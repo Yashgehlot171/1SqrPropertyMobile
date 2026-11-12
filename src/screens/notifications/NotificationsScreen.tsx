@@ -1,3 +1,5 @@
+import {useRemoteLoad, useRemoteAction} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -22,6 +24,11 @@ type NotificationFilter = 'All' | NotificationCategory;
 type Props = NativeStackScreenProps<HomeStackParamList, 'Notifications'>;
 
 export function NotificationsScreen({navigation}: Props) {
+  const loadRemote = useNotificationStore(state => state.load);
+  const loading = useNotificationStore(state => state.loading);
+  const error = useNotificationStore(state => state.error);
+  useRemoteLoad(loadRemote);
+  const {run, busy} = useRemoteAction();
   const notifications = useNotificationStore(state => state.notifications);
   const markRead = useNotificationStore(state => state.markRead);
   const markAllRead = useNotificationStore(state => state.markAllRead);
@@ -45,26 +52,26 @@ export function NotificationsScreen({navigation}: Props) {
   );
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={loading} error={error} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Notifications"
-        subtitle="Local notifications with category filter and read actions"
+        subtitle="Updates and notifications"
         onBackPress={navigation.goBack}
       />
       <View style={styles.actions}>
-        <AppButton
+        <AppButton disabled={busy}
           label="Mark All Read"
-          onPress={() => {
-            markAllRead();
+          onPress={() => run(async () => {
+            await markAllRead();
             showToast('All notifications marked as read.');
-          }}
+          })}
           style={styles.button}
           variant="outlined"
         />
       </View>
       <View style={styles.filters}>
         {categories.map(item => (
-          <Pressable
+          <Pressable disabled={busy}
             key={item}
             onPress={() => setActiveFilter(item)}
             style={[
@@ -87,14 +94,14 @@ export function NotificationsScreen({navigation}: Props) {
       />
       {visibleNotifications.length ? (
         visibleNotifications.map(notification => (
-          <Pressable
+          <Pressable disabled={busy}
             key={notification.id}
-            onPress={() => {
+            onPress={() => run(async () => {
               if (!notification.isRead) {
-                markRead(notification.id);
+                await markRead(notification.id);
                 showToast('Notification marked as read.');
               }
-            }}
+            })}
             style={[
               styles.card,
               !notification.isRead && styles.unreadCard,
@@ -110,19 +117,19 @@ export function NotificationsScreen({navigation}: Props) {
               <Text style={styles.date}>{formatDate(notification.createdAt)}</Text>
               <View style={styles.footerActions}>
                 {!notification.isRead ? (
-                  <Pressable
-                    onPress={() => {
-                      markRead(notification.id);
+                  <Pressable disabled={busy}
+                    onPress={() => run(async () => {
+                      await markRead(notification.id);
                       showToast('Notification marked as read.');
-                    }}>
+                    })}>
                     <Text style={styles.actionText}>Mark Read</Text>
                   </Pressable>
                 ) : null}
-                <Pressable
-                  onPress={() => {
-                    deleteNotification(notification.id);
-                    showToast('Notification deleted locally.');
-                  }}>
+                <Pressable disabled={busy}
+                  onPress={() => run(async () => {
+                    await deleteNotification(notification.id);
+                    showToast('Notification deleted.');
+                  })}>
                   <Text style={[styles.actionText, styles.deleteText]}>
                     Delete
                   </Text>

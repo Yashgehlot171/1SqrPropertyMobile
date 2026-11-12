@@ -1,3 +1,5 @@
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -21,15 +23,20 @@ import {callLegalTeam, openWhatsAppForLegalTeam} from '@/utils/legalActions';
 type Props = NativeStackScreenProps<ServicesStackParamList, 'LegalTeamDetail'>;
 
 export function LegalTeamDetailScreen({navigation, route}: Props) {
+  const loadRemote = useLegalStore(state => state.load);
+  const remoteLoading = useLegalStore(state => state.loading);
+  const remoteError = useLegalStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
   const teams = useLegalStore(state => state.teams);
   const team = teams.find(item => item.id === route.params.teamId);
 
   if (!team) {
     return (
-      <ScreenContainer>
+      <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
         <AppHeader title="Legal Team" onBackPress={navigation.goBack} />
         <EmptyState
-          description="The selected legal team is not available locally."
+          description="The selected legal team is not available."
           title="Legal team not found"
         />
       </ScreenContainer>
@@ -37,7 +44,7 @@ export function LegalTeamDetailScreen({navigation, route}: Props) {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title={team.name}
         subtitle={team.city}

@@ -1,3 +1,6 @@
+import {ScreenContainer, AppHeader} from '@/components';
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo} from 'react';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
@@ -15,6 +18,11 @@ export function PropertyVerificationRequestScreen({
   navigation,
   route,
 }: Props) {
+  const loadRemote = useLegalStore(state => state.load);
+  const remoteLoading = useLegalStore(state => state.loading);
+  const remoteError = useLegalStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
   const requests = useLegalStore(state => state.requests);
   const request = useMemo(
     () =>
@@ -24,8 +32,13 @@ export function PropertyVerificationRequestScreen({
     [requests, route.params?.requestId],
   );
 
+  if (route.params?.requestId && !request) {
+    return <ScreenContainer><AppHeader title="Edit request" onBackPress={navigation.goBack} />
+      <RemoteStatus loading={remoteLoading} error={remoteError ?? (remoteLoading ? null : 'Request unavailable. Retry to refresh.')} retry={() => { void loadRemote().catch(() => {}); }} />
+    </ScreenContainer>;
+  }
   return (
-    <LegalRequestFormContent
+    <LegalRequestFormContent key={request?.id ?? 'new'}
       navigation={navigation}
       request={request}
       type="Property Verification"

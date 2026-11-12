@@ -54,6 +54,7 @@ export function normalizeUser(user?: BackendUser | null): UserProfile | undefine
     verificationStatus: user.verificationStatus ?? user.verification_status,
     rejectionReason: user.rejectionReason ?? user.rejection_reason,
     remarks: user.remarks,
+    capabilities: user.capabilities,
   };
 }
 

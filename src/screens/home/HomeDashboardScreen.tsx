@@ -1,3 +1,5 @@
+import { useRemoteLoad } from '@/hooks/useRemoteFlow';
+import { RemoteStatus } from '@/components/common/RemoteStatus';
 import React, { useMemo, useState } from 'react';
 import {
   Image,
@@ -15,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-import { BannerCard } from '@/components';
+import { BannerCard, KeyboardAwareScrollView } from '@/components';
 import { PROPERTY_CATEGORIES, PROPERTY_TYPES } from '@/constants/appConstants';
 import { colors } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
@@ -64,6 +66,10 @@ function getPropertyImage(propertyId: string) {
 export function HomeDashboardScreen({ navigation }: Props) {
   const tabNavigation = navigation.getParent<any>();
   const [query, setQuery] = useState('');
+  const loadRemote = usePropertyStore(state => state.load);
+  const remoteLoading = usePropertyStore(state => state.loading);
+  const remoteError = usePropertyStore(state => state.error);
+  useRemoteLoad(loadRemote);
   const properties = usePropertyStore(state => state.properties);
   const setFilters = usePropertyStore(state => state.setFilters);
   const toggleFavourite = useSavedStore(state => state.toggleFavourite);
@@ -76,9 +82,10 @@ export function HomeDashboardScreen({ navigation }: Props) {
 
   const featured = useMemo(
     () =>
-      filterProperties(properties, { search: query }).filter(
-        item => item.featured,
-      ),
+      filterProperties(
+        properties.filter(item => item.status === 'Active'),
+        { search: query },
+      ).filter(item => item.featured),
     [properties, query],
   );
   const latest = useMemo(
@@ -102,8 +109,10 @@ export function HomeDashboardScreen({ navigation }: Props) {
       onShare={() => {
         shareProperty(property);
       }}
-      onToggleSave={() => {
-        toggleFavourite(property.id);
+      onToggleSave={async () => {
+        if (!(await toggleFavourite(property.id))) {
+          return;
+        }
         showToast(
           favouriteIds.includes(property.id)
             ? 'Property removed from favourites.'
@@ -121,7 +130,14 @@ export function HomeDashboardScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScrollView
+      <RemoteStatus
+        loading={remoteLoading}
+        error={remoteError}
+        retry={() => {
+          void loadRemote().catch(() => {});
+        }}
+      />
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -219,9 +235,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
         >
           <View style={styles.bannerScrim} />
           <View style={styles.bannerCopy}>
-            <Text style={styles.bannerTitle}>
-              Find verified property near you
-            </Text>
+            <Text style={styles.bannerTitle}>Find Your Dream Property</Text>
             <Text style={styles.bannerSubtitle}>
               Buy, sell or construction-deveopment trusted properties in your
               city
@@ -236,6 +250,66 @@ export function HomeDashboardScreen({ navigation }: Props) {
             </Pressable>
           </View>
         </ImageBackground>
+
+        <View style={styles.quickActions}>
+          <QuickAction
+            icon="home-outline"
+            title="Buy"
+            onPress={() =>
+              navigation.navigate(ROUTES.home.propertyListing, { query })
+            }
+          />
+          <QuickAction
+            icon="key-outline"
+            title="Rent"
+            onPress={() =>
+              navigation.navigate(ROUTES.home.propertyListing, { query })
+            }
+          />
+          <QuickAction
+            icon="pricetag-outline"
+            title="Sell"
+            onPress={() =>
+              tabNavigation?.navigate(ROUTES.tabs.addPropertyStack)
+            }
+          />
+          <QuickAction
+            icon="business-outline"
+            title="Construction"
+            selected
+            onPress={() =>
+              navigation.navigate(ROUTES.home.constructionRequirement, {})
+            }
+          />
+          <QuickAction
+            icon="wallet-outline"
+            title="Loan"
+            onPress={() =>
+              tabNavigation?.navigate(ROUTES.tabs.servicesStack, {
+                screen: ROUTES.services.loanMarketplace,
+              })
+            }
+          />
+          <QuickAction
+            icon="document-text-outline"
+            title="Legal"
+            onPress={() =>
+              tabNavigation?.navigate(ROUTES.tabs.servicesStack, {
+                screen: ROUTES.services.legalServicesDashboard,
+              })
+            }
+          />
+          <QuickAction
+            icon="build-outline"
+            title="Services"
+            onPress={() => tabNavigation?.navigate(ROUTES.tabs.servicesStack)}
+          />
+          <QuickAction
+            icon="grid-outline"
+            title="More"
+            onPress={() => tabNavigation?.navigate(ROUTES.tabs.servicesStack)}
+          />
+        </View>
 
         <SectionTitle
           actionLabel="View All"
@@ -304,6 +378,15 @@ export function HomeDashboardScreen({ navigation }: Props) {
         </ScrollView>
 
         <BannerCard
+          ctaLabel="Start Construction Requirement"
+          description="Tell us what you want to build and get matched with verified builders and plans."
+          icon="home-outline"
+          onPress={() =>
+            navigation.navigate(ROUTES.home.constructionRequirement, {})
+          }
+          title="Build Your Dream Home"
+        />
+        <BannerCard
           ctaLabel="Open Services"
           description="Estimate costs and request a final quote from the services hub."
           icon="construct-outline"
@@ -336,7 +419,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
           }
           title="Loan Calculator"
         />
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
@@ -383,6 +466,37 @@ function HomeCategory({
   );
 }
 
+function QuickAction({
+  icon,
+  title,
+  onPress,
+  selected = false,
+}: {
+  icon: string;
+  title: string;
+  onPress: () => void;
+  selected?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={[styles.quickAction, selected && styles.quickActionSelected]}
+    >
+      <View style={[styles.quickIcon, selected && styles.quickIconSelected]}>
+        <Icon
+          name={icon}
+          size={20}
+          color={selected ? '#0867E8' : colors.brandPurple}
+        />
+      </View>
+      <Text style={[styles.quickTitle, selected && styles.quickTitleSelected]}>
+        {title}
+      </Text>
+    </Pressable>
+  );
+}
+
 function HomePropertyCard({
   property,
   width,
@@ -407,7 +521,15 @@ function HomePropertyCard({
       <Pressable onPress={onPress}>
         <Image
           resizeMode="cover"
-          source={getPropertyImage(property.id)}
+          source={
+            property.media.find(item => item.type === 'image' && item.uri)?.uri
+              ? {
+                  uri: property.media.find(
+                    item => item.type === 'image' && item.uri,
+                  )!.uri,
+                }
+              : getPropertyImage(property.id)
+          }
           style={styles.propertyImage}
         />
         <Pressable onPress={onToggleSave} style={styles.saveButton}>
@@ -466,6 +588,35 @@ function PropertyAction({
 }
 
 const styles = StyleSheet.create({
+  quickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+    marginBottom: 16,
+    gap: 5,
+  },
+  quickAction: {
+    width: '23.5%',
+    minHeight: 66,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  quickActionSelected: { borderColor: '#0867E8', backgroundColor: '#F2F8FF' },
+  quickIcon: {
+    width: 35,
+    height: 35,
+    borderRadius: 7,
+    backgroundColor: '#F4F1FB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickIconSelected: { backgroundColor: '#E4F0FF' },
+  quickTitle: { fontSize: 10, color: colors.textPrimary, fontWeight: '600' },
+  quickTitleSelected: { color: '#0867E8', fontWeight: '700' },
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,

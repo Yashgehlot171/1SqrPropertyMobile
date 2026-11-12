@@ -15,6 +15,14 @@ export interface UserProfile {
   verificationStatus?: string;
   rejectionReason?: string;
   remarks?: string;
+  capabilities?: UserCapabilities;
+}
+
+export interface UserCapabilities {
+  canAddProperty: boolean;
+  canUseConstructionCustomer: boolean;
+  isBroker: boolean;
+  canUseConstructionBuilder: boolean;
 }
 
 export interface LoginPayload {

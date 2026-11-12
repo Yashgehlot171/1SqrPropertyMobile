@@ -2,16 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   ImageBackground,
-  Pressable,
   StatusBar,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import {colors} from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { getSession } from '@/services/authApi';
 import { useAuthStore } from '@/store/authStore';
@@ -112,9 +109,6 @@ export function SplashScreen({ navigation }: Props) {
             ]}
           />
         </View>
-        <Pressable accessibilityRole="button" style={styles.cta}>
-          <Text style={styles.ctaText}>Get Started</Text>
-        </Pressable>
       </View>
     </ImageBackground>
   );
@@ -131,10 +125,8 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 28,
-    paddingBottom: 28,
-    paddingTop: 72,
   },
   centerContent: {
     flex: 1,
@@ -144,23 +136,5 @@ const styles = StyleSheet.create({
   logo: {
     maxWidth: '48%',
     maxHeight: '26%',
-  },
-  cta: {
-    width: '100%',
-    minHeight: 52,
-    borderRadius: 14,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 8,
-  },
-  ctaText: {
-    color: colors.brandPurple,
-    fontSize: 13,
-    fontWeight: '700',
   },
 });

@@ -1,3 +1,4 @@
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
 import React, {useMemo} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -28,7 +29,11 @@ type Props = NativeStackScreenProps<
 export function PortfolioDashboardScreen({navigation}: Props) {
   const tabNavigation = navigation.getParent<any>();
   const user = useAuthStore(state => state.user);
-  const properties = usePropertyStore(state => state.properties);
+  const properties = usePropertyStore(state => state.ownProperties);
+  const loadMine = usePropertyStore(state => state.loadMine);
+  const loadLeads = useLeadStore(state => state.load);
+  useRemoteLoad(loadMine);
+  useRemoteLoad(loadLeads);
   const leads = useLeadStore(state => state.leads);
 
   const ownedProperties = useMemo(() => {
@@ -38,8 +43,7 @@ export function PortfolioDashboardScreen({navigation}: Props) {
 
     return properties.filter(
       item =>
-        item.owner.id === user.id ||
-        (user.role !== 'buyer' && item.owner.role === user.role),
+        item.owner.id === user.id,
     );
   }, [properties, user]);
 

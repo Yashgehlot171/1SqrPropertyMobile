@@ -1,154 +1,71 @@
 import {create} from 'zustand';
-
-import {mockSupportTickets} from '@/data/mockSupport';
-import {generateId} from '@/services/serviceUtils';
-import type {
-  SupportTicket,
-  SupportTicketStatus,
-  UploadedDocument,
-} from '@/types';
+import * as api from '@/services/supportApi';
+import {useAuthStore} from './authStore';
+import type {SupportTicket, SupportTicketStatus, UploadedDocument} from '@/types';
 
 interface SupportStore {
   tickets: SupportTicket[];
-  addTicket: (payload: Omit<SupportTicket, 'id' | 'createdAt'>) => SupportTicket;
-  updateTicket: (ticketId: string, updates: Partial<SupportTicket>) => void;
-  deleteTicket: (ticketId: string) => void;
-  updateTicketStatus: (
-    ticketId: string,
-    status: SupportTicketStatus,
-  ) => void;
-  addRemark: (ticketId: string, text: string, addedBy?: string) => void;
-  editRemark: (ticketId: string, remarkId: string, text: string) => void;
-  deleteRemark: (ticketId: string, remarkId: string) => void;
-  addDocument: (
-    ticketId: string,
-    document: Omit<UploadedDocument, 'id' | 'uploadedAt' | 'status'>,
-  ) => void;
-  removeDocument: (ticketId: string, documentId: string) => void;
+  categories: {id: number; name: string}[];
+  loading: boolean;
+  error: string | null;
+  load: () => Promise<void>;
+  addTicket: (payload: Omit<SupportTicket, 'id' | 'createdAt'>) => Promise<SupportTicket>;
+  updateTicket: (id: string, payload: Partial<SupportTicket>) => Promise<void>;
+  deleteTicket: (id: string) => Promise<void>;
+  updateTicketStatus: (id: string, status: SupportTicketStatus, remark?: string) => Promise<void>;
+  addRemark: (id: string, text: string) => Promise<void>;
+  editRemark: (id: string, remarkId: string, text: string) => Promise<void>;
+  deleteRemark: (id: string, remarkId: string) => Promise<void>;
+  addDocument: (id: string, document: UploadedDocument) => Promise<void>;
+  removeDocument: (id: string, documentId: string) => Promise<void>;
 }
-
-export const useSupportStore = create<SupportStore>(set => ({
-  tickets: mockSupportTickets,
-  addTicket: payload => {
-    const created: SupportTicket = {
-      ...payload,
-      id: generateId('ticket'),
-      createdAt: new Date().toISOString(),
-    };
-
-    set(state => ({
-      tickets: [created, ...state.tickets],
-    }));
-
-    return created;
-  },
-  updateTicket: (ticketId, updates) =>
-    set(state => ({
-      tickets: state.tickets.map(item =>
-        item.id === ticketId ? {...item, ...updates} : item,
-      ),
-    })),
-  deleteTicket: ticketId =>
-    set(state => ({
-      tickets: state.tickets.filter(item => item.id !== ticketId),
-    })),
-  updateTicketStatus: (ticketId, status) =>
-    set(state => ({
-      tickets: state.tickets.map(item =>
-        item.id === ticketId
-          ? {
-              ...item,
-              status,
-              history: [
-                {
-                  id: generateId('support-history'),
-                  status,
-                  updatedBy: 'Support Team',
-                  updatedAt: new Date().toISOString(),
-                },
-                ...item.history,
-              ],
-            }
-          : item,
-      ),
-    })),
-  addRemark: (ticketId, text, addedBy = 'Support Team') =>
-    set(state => ({
-      tickets: state.tickets.map(item =>
-        item.id === ticketId
-          ? {
-              ...item,
-              remarks: [
-                {
-                  id: generateId('support-remark'),
-                  text,
-                  addedBy,
-                  date: new Date().toISOString(),
-                },
-                ...item.remarks,
-              ],
-            }
-          : item,
-      ),
-    })),
-  editRemark: (ticketId, remarkId, text) =>
-    set(state => ({
-      tickets: state.tickets.map(item =>
-        item.id === ticketId
-          ? {
-              ...item,
-              remarks: item.remarks.map(remark =>
-                remark.id === remarkId
-                  ? {
-                      ...remark,
-                      text,
-                      date: new Date().toISOString(),
-                    }
-                  : remark,
-              ),
-            }
-          : item,
-      ),
-    })),
-  deleteRemark: (ticketId, remarkId) =>
-    set(state => ({
-      tickets: state.tickets.map(item =>
-        item.id === ticketId
-          ? {
-              ...item,
-              remarks: item.remarks.filter(remark => remark.id !== remarkId),
-            }
-          : item,
-      ),
-    })),
-  addDocument: (ticketId, document) =>
-    set(state => ({
-      tickets: state.tickets.map(item =>
-        item.id === ticketId
-          ? {
-              ...item,
-              documents: [
-                {
-                  ...document,
-                  id: generateId('support-document'),
-                  uploadedAt: new Date().toISOString(),
-                  status: 'uploaded',
-                },
-                ...item.documents,
-              ],
-            }
-          : item,
-      ),
-    })),
-  removeDocument: (ticketId, documentId) =>
-    set(state => ({
-      tickets: state.tickets.map(item =>
-        item.id === ticketId
-          ? {
-              ...item,
-              documents: item.documents.filter(doc => doc.id !== documentId),
-            }
-          : item,
-      ),
-    })),
-}));
+let epoch = 0;
+const unsupported = async () => { throw new Error('This action is not available.'); };
+export const useSupportStore = create<SupportStore>((set, get) => {
+  const replace = (item: SupportTicket) => set(state => ({tickets: state.tickets.some(row => row.id === item.id)
+    ? state.tickets.map(row => row.id === item.id ? item : row) : [item, ...state.tickets]}));
+  const commit = async <T,>(work: () => Promise<T>, apply: (value: T) => void): Promise<T> => {
+    const started = epoch;
+    const value = await work();
+    if (started !== epoch) { throw new Error('Your session changed. Please try again.'); }
+    apply(value);
+    return value;
+  };
+  return {
+    tickets: [], categories: [], loading: false, error: null,
+    load: async () => {
+      if (get().loading) { return; }
+      const started = epoch;
+      set({loading: true, error: null});
+      try {
+        const [items, options] = await Promise.all([api.getSupportTickets(), api.getSupportCategories()]);
+        if (started === epoch) { set({tickets: items, categories: options, loading: false}); }
+      } catch (error) {
+        if (started === epoch) { set({loading: false, error: error instanceof Error ? error.message : 'Unable to load data.'}); }
+        throw error;
+      }
+    },
+    addTicket: payload => commit(() => api.addSupportTicket(payload), replace),
+    updateTicket: async (id, payload) => { await commit(() => api.updateSupportTicket(id, payload), replace); },
+    deleteTicket: async id => { await commit(() => api.deleteSupportTicket(id), () => set(state => ({tickets: state.tickets.filter(row => row.id !== id)}))); },
+    updateTicketStatus: async (id, status, remark) => { await commit(() => api.updateSupportStatus(id, status, remark), replace); },
+    addRemark: async (id, text) => { await commit(() => api.addSupportRemark(id, text), replace); },
+    editRemark: unsupported, deleteRemark: unsupported,
+    addDocument: async (id, document) => {
+      const item = get().tickets.find(row => row.id === id);
+      if (!item) { throw new Error('Request no longer available.'); }
+      await get().updateTicket(id, {documents: [...item.documents, document]});
+    },
+    removeDocument: async (id, documentId) => {
+      const item = get().tickets.find(row => row.id === id);
+      if (!item) { throw new Error('Request no longer available.'); }
+      await get().updateTicket(id, {documents: item.documents.filter(doc => doc.id !== documentId)});
+    },
+  };
+});
+useAuthStore.subscribe((state, previous) => {
+  if (state.user?.id !== previous.user?.id || state.isLoggedIn !== previous.isLoggedIn) {
+    epoch += 1;
+    useSupportStore.setState({tickets: [], categories: [], loading: false, error: null});
+  }
+});

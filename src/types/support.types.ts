@@ -9,6 +9,7 @@ export type SupportTicketStatus =
   | 'Open'
   | 'In Progress'
   | 'Waiting for User'
+  | 'Reopened'
   | 'Resolved'
   | 'Closed';
 

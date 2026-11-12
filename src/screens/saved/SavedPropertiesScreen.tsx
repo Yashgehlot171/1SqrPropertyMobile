@@ -279,9 +279,9 @@ export function SavedPropertiesScreen({ navigation }: Props) {
                 // POST/DELETE /properties/:propertyId/save, rolling back and surfacing
                 // the failure via showApiError if it fails. This screen fires it and
                 // shows an immediate optimistic toast, same as the other consumers.
-                onToggleSave={() => {
+                onToggleSave={async () => {
                   const wasSaved = isPropertySaved(property);
-                  toggleFavourite(property.id);
+                  if (!await toggleFavourite(property.id)) { return; }
                   showToast(
                     wasSaved
                       ? 'Property removed from favourites.'

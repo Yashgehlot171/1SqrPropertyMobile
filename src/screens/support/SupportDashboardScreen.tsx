@@ -1,3 +1,5 @@
+import {useRemoteLoad, useRemoteAction} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -31,6 +33,12 @@ type Props = NativeStackScreenProps<ServicesStackParamList, 'SupportDashboard'>;
 type TicketFilter = 'All' | SupportTicketStatus;
 
 export function SupportDashboardScreen({navigation}: Props) {
+  const loadRemote = useSupportStore(state => state.load);
+  const remoteLoading = useSupportStore(state => state.loading);
+  const remoteError = useSupportStore(state => state.error);
+  useRemoteLoad(loadRemote);
+  const {run, busy} = useRemoteAction();
+
   const tickets = useSupportStore(state => state.tickets);
   const deleteTicket = useSupportStore(state => state.deleteTicket);
   const [query, setQuery] = useState('');
@@ -55,7 +63,7 @@ export function SupportDashboardScreen({navigation}: Props) {
   );
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Support"
         subtitle="Create, track, update and resolve local support tickets"
@@ -127,7 +135,7 @@ export function SupportDashboardScreen({navigation}: Props) {
           </Pressable>
         ))}
       </View>
-      <AppButton
+      <AppButton disabled={busy}
         label="Create Support Ticket"
         onPress={() => navigation.navigate(ROUTES.services.supportTicketForm)}
       />
@@ -167,13 +175,14 @@ export function SupportDashboardScreen({navigation}: Props) {
             : 'Delete this support ticket?'
         }
         onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
+        onConfirm={() => { return run(async () => {
           if (deleteTarget) {
-            deleteTicket(deleteTarget.id);
-            showToast('Support ticket deleted locally.');
+            await deleteTicket(deleteTarget.id);
+            showToast('Support ticket deleted.');
           }
           setDeleteTarget(null);
-        }}
+        
+  }); }}
         title="Delete Support Ticket"
         visible={Boolean(deleteTarget)}
       />

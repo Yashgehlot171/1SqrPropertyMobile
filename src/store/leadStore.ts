@@ -1,6 +1,7 @@
 import {create} from 'zustand';
 
-import {mockLeads} from '@/data/mockLeads';
+import {getLeads} from '@/services/leadApi';
+import {useAuthStore} from './authStore';
 import {generateId} from '@/services/serviceUtils';
 import type {Lead, LeadStatus} from '@/types';
 
@@ -10,6 +11,7 @@ function latestRemarkText(lead: Lead): string | undefined {
 
 interface LeadStore {
   leads: Lead[];
+  load: () => Promise<void>;
   setLeads: (leads: Lead[]) => void;
   removeLead: (leadId: string) => void;
   updateLeadStatus: (leadId: string, status: LeadStatus) => void;
@@ -20,7 +22,12 @@ interface LeadStore {
 }
 
 export const useLeadStore = create<LeadStore>(set => ({
-  leads: mockLeads,
+  leads: [],
+  load: async () => {
+    const userId = useAuthStore.getState().user?.id;
+    const leads = await getLeads();
+    if (userId === useAuthStore.getState().user?.id) { set({leads}); }
+  },
   setLeads: leads => set({leads}),
   removeLead: leadId =>
     set(state => ({
@@ -118,3 +125,5 @@ export const useLeadStore = create<LeadStore>(set => ({
       }),
     })),
 }));
+
+useAuthStore.subscribe((state, previous) => { if (state.user?.id !== previous.user?.id || state.isLoggedIn !== previous.isLoggedIn) { useLeadStore.setState({leads: []}); } });

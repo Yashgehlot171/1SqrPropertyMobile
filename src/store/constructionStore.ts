@@ -1,13 +1,6 @@
 import {create} from 'zustand';
-
-import {
-  mockConstructionPackages,
-  mockConstructionQuotes,
-  mockConstructionRequests,
-  mockContractors,
-  mockMaterialBrands,
-  mockSuppliers,
-} from '@/data/mockConstruction';
+import * as api from '@/services/constructionApi';
+import {useAuthStore} from './authStore';
 import {generateId} from '@/services/serviceUtils';
 import type {
   ConstructionPackage,
@@ -18,6 +11,7 @@ import type {
 } from '@/types';
 
 interface ConstructionStore {
+  loading: boolean; error: string | null; load: () => Promise<void>;
   packages: ConstructionPackage[];
   suppliers: DirectoryEntry[];
   contractors: DirectoryEntry[];
@@ -33,20 +27,26 @@ interface ConstructionStore {
   deleteQuote: (quoteId: string) => void;
   addRequest: (
     request: Omit<ConstructionRequest, 'id' | 'history' | 'remarks'>,
-  ) => ConstructionRequest;
+  ) => Promise<ConstructionRequest>;
   deleteRequest: (requestId: string) => void;
   toggleSavedMaterial: (materialId: string) => void;
   toggleSupplierShortlist: (supplierId: string) => void;
   toggleContractorShortlist: (contractorId: string) => void;
 }
 
-export const useConstructionStore = create<ConstructionStore>(set => ({
-  packages: mockConstructionPackages,
-  suppliers: mockSuppliers,
-  contractors: mockContractors,
-  materials: mockMaterialBrands,
-  quotes: mockConstructionQuotes,
-  requests: mockConstructionRequests,
+export const useConstructionStore = create<ConstructionStore>((set, get) => ({
+  packages: [], suppliers: [], contractors: [], materials: [], quotes: [], requests: [],
+  loading: false, error: null,
+  load: async () => {
+    if (get().loading) { return; }
+    const userId = useAuthStore.getState().user?.id;
+    set({loading: true, error: null});
+    try {
+      const [packages, suppliers, contractors, requests] = await Promise.all([api.getConstructionPackages(), api.getSuppliers(), api.getContractors(), api.getConstructionRequests()]);
+      if (userId !== useAuthStore.getState().user?.id) { return; }
+      set(state => ({packages, suppliers, contractors, requests: requests.map(item => ({...item, quoteId: state.requests.find(old => old.id === item.id)?.quoteId})), loading: false}));
+    } catch (error) { set({loading: false, error: error instanceof Error ? error.message : 'Unable to load construction services.'}); throw error; }
+  },
   savedMaterialIds: [],
   shortlistedSupplierIds: [],
   shortlistedContractorIds: [],
@@ -66,33 +66,21 @@ export const useConstructionStore = create<ConstructionStore>(set => ({
   deleteQuote: quoteId =>
     set(state => ({
       quotes: state.quotes.filter(item => item.id !== quoteId),
-      requests: state.requests.filter(item => item.quoteId !== quoteId),
+
     })),
-  addRequest: request => {
-    const created: ConstructionRequest = {
-      ...request,
-      id: generateId('construction-request'),
-      remarks: [],
-      history: [
-        {
-          id: generateId('construction-request-history'),
-          status: 'Submitted',
-          updatedBy: request.customerName,
-          updatedAt: new Date().toISOString(),
-        },
-      ],
-    };
-
-    set(state => ({
-      requests: [created, ...state.requests],
-    }));
-
+  addRequest: async request => {
+    const userId = useAuthStore.getState().user?.id;
+    const quote = get().quotes.find(item => item.id === request.quoteId);
+    if (!quote) { throw new Error('Calculate an estimate before requesting a quotation.'); }
+    const existing = get().requests.find(item => item.quoteId === quote.id);
+    if (existing) { return existing; }
+    const selected = get().packages.find(item => (item.quality ?? item.name) === quote.quality);
+    const created = await api.addConstructionRequest(request, quote, selected?.id);
+    if (userId !== useAuthStore.getState().user?.id) { throw new Error('Session changed.'); }
+    set(state => ({requests: [created, ...state.requests]}));
     return created;
   },
-  deleteRequest: requestId =>
-    set(state => ({
-      requests: state.requests.filter(item => item.id !== requestId),
-    })),
+  deleteRequest: () => { throw new Error('Construction requests cannot be deleted from the app. Contact support.'); },
   toggleSavedMaterial: materialId =>
     set(state => ({
       savedMaterialIds: state.savedMaterialIds.includes(materialId)
@@ -114,3 +102,9 @@ export const useConstructionStore = create<ConstructionStore>(set => ({
         : [contractorId, ...state.shortlistedContractorIds],
     })),
 }));
+
+useAuthStore.subscribe((state, previous) => {
+  if (state.user?.id !== previous.user?.id || state.isLoggedIn !== previous.isLoggedIn) {
+    useConstructionStore.setState({packages: [], suppliers: [], contractors: [], materials: [], quotes: [], requests: [], loading: false, error: null, savedMaterialIds: [], shortlistedSupplierIds: [], shortlistedContractorIds: []});
+  }
+});

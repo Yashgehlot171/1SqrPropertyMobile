@@ -15,6 +15,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'OtpVerification'>;
 
 export function OtpVerificationScreen({navigation, route}: Props) {
   const [otp, setOtp] = useState('');
+  const [testingOtp, setTestingOtp] = useState(route.params.testingOtp);
   const [errorMessage, setErrorMessage] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
@@ -63,7 +64,9 @@ export function OtpVerificationScreen({navigation, route}: Props) {
     setErrorMessage('');
 
     try {
-      await sendOtp({mobile: route.params.mobile});
+      const response = await sendOtp({mobile: route.params.mobile});
+      setTestingOtp(response.otp);
+      setOtp('');
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : 'Unable to resend OTP.',
@@ -85,6 +88,13 @@ export function OtpVerificationScreen({navigation, route}: Props) {
         <Text style={styles.otpBadgeText}>OTP</Text>
       </View>
       <Text style={styles.mobileText}>Mobile: {route.params.mobile}</Text>
+      {testingOtp ? (
+        <View style={styles.testingOtpBox}>
+          <Text style={styles.testingOtpLabel}>Testing OTP</Text>
+          <Text selectable style={styles.testingOtpCode}>{testingOtp}</Text>
+          <Text style={styles.testingOtpHint}>Enter this code below to continue.</Text>
+        </View>
+      ) : null}
       <AppInput
         errorMessage={errorMessage}
         keyboardType="number-pad"
@@ -144,6 +154,27 @@ const styles = StyleSheet.create({
   mobileText: {
     color: colors.textPrimary,
     fontWeight: typography.fontWeight.semiBold,
+  },
+  testingOtpBox: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: spacing.radiusMd,
+    padding: spacing.md,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  testingOtpLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.xs,
+  },
+  testingOtpCode: {
+    color: colors.primary,
+    fontSize: typography.fontSize.xxl,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 6,
+  },
+  testingOtpHint: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.xs,
   },
   resendLink: {
     color: colors.primary,

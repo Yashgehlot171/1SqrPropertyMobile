@@ -15,7 +15,8 @@ export type ConstructionQuality =
 
 export interface ConstructionPackage {
   id: Identifier;
-  name: ConstructionQuality;
+  name: string;
+  quality?: ConstructionQuality;
   costPerSqFt: number;
   materialQuality: string;
   labourIncluded: boolean;

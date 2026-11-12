@@ -1,3 +1,7 @@
+import {getEmiEstimate} from '@/services/calculatorApi';
+import {useRemoteAction} from '@/hooks/useRemoteFlow';
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -21,6 +25,12 @@ import {showToast} from '@/utils/toast';
 type Props = NativeStackScreenProps<ServicesStackParamList, 'LoanCalculator'>;
 
 export function LoanCalculatorScreen({navigation}: Props) {
+  const loadRemote = useLoanStore(state => state.load);
+  const remoteLoading = useLoanStore(state => state.loading);
+  const remoteError = useLoanStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
+  const {run, busy} = useRemoteAction();
   const banks = useLoanStore(state => state.banks);
   const [selectedBankId, setSelectedBankId] = useState(banks[0]?.id ?? '');
   const selectedBank = useMemo(
@@ -56,7 +66,7 @@ export function LoanCalculatorScreen({navigation}: Props) {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader title="Loan Calculator" onBackPress={navigation.goBack} />
       <Text style={styles.sectionTitle}>Preferred Bank</Text>
       <View style={styles.bankChips}>
@@ -136,9 +146,9 @@ export function LoanCalculatorScreen({navigation}: Props) {
         <ResultRow label="Total Amount" value={emiResult.totalPayable} />
       </View>
 
-      <AppButton
+      <AppButton disabled={busy}
         label="Apply for Loan"
-        onPress={() => {
+        onPress={() => run(async () => {
           const amount = Number(loanAmount);
           const down = Number(downPayment);
           const tenure = Number(tenureYears);
@@ -151,14 +161,15 @@ export function LoanCalculatorScreen({navigation}: Props) {
             return;
           }
 
-          navigation.navigate(ROUTES.services.emiResult, {
+          const result = await getEmiEstimate({loanAmount: amount, downPayment: down, interestRate: rate, tenureYears: tenure});
+          navigation.navigate(ROUTES.services.emiResult, {result,
             loanAmount: amount,
             interestRate: rate,
             tenureYears: tenure,
             downPayment: down,
             bankId: selectedBankId || undefined,
           });
-        }}
+        })}
         style={styles.primaryButton}
       />
       <Pressable onPress={resetCalculator} style={styles.resetButton}>

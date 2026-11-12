@@ -1,3 +1,5 @@
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React from 'react';
 import {Text} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -19,17 +21,22 @@ type Props = NativeStackScreenProps<
 >;
 
 export function HouseConstructionPackagesScreen({navigation}: Props) {
+  const loadRemote = useConstructionStore(state => state.load);
+  const remoteLoading = useConstructionStore(state => state.loading);
+  const remoteError = useConstructionStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
   const packages = useConstructionStore(state => state.packages);
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="House Construction Packages"
         subtitle="Compare inclusions and start the estimate flow"
         onBackPress={navigation.goBack}
       />
       <Text>
-        Static package data is sorted for quick comparison across quality and
+        Available package data is sorted for quick comparison across quality and
         per-sq-ft pricing.
       </Text>
       <SectionHeader title="Available Packages" />

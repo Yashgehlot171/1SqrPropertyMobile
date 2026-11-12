@@ -5,7 +5,10 @@ export type NotificationCategory =
   | 'Legal'
   | 'Loans'
   | 'Construction'
-  | 'Offers';
+  | 'Offers'
+  | 'System'
+  | 'Leads'
+  | 'Support';
 
 export interface AppNotification {
   id: Identifier;

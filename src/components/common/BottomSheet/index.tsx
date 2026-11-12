@@ -1,8 +1,15 @@
 import React from 'react';
-import {Modal, Pressable, StyleSheet, View} from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 
-import {colors} from '@/constants/colors';
-import {spacing} from '@/constants/spacing';
+import { colors } from '@/constants/colors';
+import { spacing } from '@/constants/spacing';
 
 interface BottomSheetProps {
   visible: boolean;
@@ -10,15 +17,20 @@ interface BottomSheetProps {
   children: React.ReactNode;
 }
 
-export function BottomSheet({visible, onClose, children}: BottomSheetProps) {
+export function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
   return (
     <Modal transparent visible={visible} animationType="slide">
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheet}>
-          <View style={styles.handle} />
-          {children}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.overlay}
+      >
+        <Pressable style={styles.overlay} onPress={onClose}>
+          <Pressable style={styles.sheet}>
+            <View style={styles.handle} />
+            {children}
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

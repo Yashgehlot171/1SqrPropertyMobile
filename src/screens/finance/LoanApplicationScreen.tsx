@@ -1,3 +1,6 @@
+import {pickRequestAttachment} from '@/services/requestAttachment';
+import {useRemoteLoad, useRemoteAction} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -24,7 +27,13 @@ import {showToast} from '@/utils/toast';
 
 type Props = NativeStackScreenProps<ServicesStackParamList, 'LoanApplication'>;
 
-export function LoanApplicationScreen({navigation, route}: Props) {
+function LoanApplicationContent({navigation, route}: Props) {
+  const loadRemote = useLoanStore(state => state.load);
+  const remoteLoading = useLoanStore(state => state.loading);
+  const remoteError = useLoanStore(state => state.error);
+  useRemoteLoad(loadRemote);
+  const {run, busy} = useRemoteAction();
+
   const user = useAuthStore(state => state.user);
   const banks = useLoanStore(state => state.banks);
   const requests = useLoanStore(state => state.requests);
@@ -54,7 +63,7 @@ export function LoanApplicationScreen({navigation, route}: Props) {
   );
   const [email, setEmail] = useState(existingRequest?.email ?? user?.email ?? '');
   const [monthlyIncome, setMonthlyIncome] = useState(
-    String(existingRequest?.monthlyIncome ?? 90000),
+    String(existingRequest?.monthlyIncome ?? ''),
   );
   const [employmentType, setEmploymentType] = useState(
     existingRequest?.employmentType ?? 'Salaried',
@@ -85,23 +94,12 @@ export function LoanApplicationScreen({navigation, route}: Props) {
 
   const selectedBank = banks.find(item => item.id === preferredBankId);
 
-  const handleAddDocument = () => {
-    const nextIndex = documents.length + 1;
-    setDocuments(current => [
-      {
-        id: `loan-form-document-${nextIndex}`,
-        name: `Income Proof ${nextIndex}`,
-        type: 'PDF',
-        uri: `local://loan-document-${nextIndex}`,
-        uploadedAt: new Date().toISOString(),
-        status: 'uploaded',
-      },
-      ...current,
-    ]);
-    showToast('Document placeholder added locally.');
-  };
+  const handleAddDocument = () => run(async () => {
+    const document = await pickRequestAttachment('loan');
+    if (document) { setDocuments(current => [document, ...current]); }
+  });
 
-  const handleSubmit = () => {
+  const handleSubmit = () => { return run(async () => {
     const incomeValue = Number(monthlyIncome);
     const loanValue = Number(loanAmount);
     const downValue = Number(downPayment);
@@ -111,13 +109,13 @@ export function LoanApplicationScreen({navigation, route}: Props) {
     if (
       !preferredBankId ||
       !applicantName.trim() ||
-      !mobile.trim() ||
+      !/^\d{10}$/.test(mobile.trim()) ||
       !email.trim() ||
       !incomeValue ||
       !loanValue ||
-      !tenureValue ||
-      !rateValue ||
-      !propertyDetails.trim() ||
+      tenureValue < 0 ||
+      rateValue < 0 ||
+
       downValue < 0 ||
       downValue >= loanValue
     ) {
@@ -152,26 +150,27 @@ export function LoanApplicationScreen({navigation, route}: Props) {
     } as const;
 
     if (existingRequest) {
-      updateRequest(existingRequest.id, payload);
-      showToast('Loan request updated locally.');
+      await updateRequest(existingRequest.id, payload);
+      showToast('Loan request updated.');
       navigation.replace(ROUTES.services.loanRequestDetail, {
         requestId: existingRequest.id,
       });
       return;
     }
 
-    const created = addRequest(payload);
-    showToast('Loan request created locally.');
+    const created = await addRequest(payload);
+    showToast('Loan request created.');
     navigation.replace(ROUTES.services.loanRequestDetail, {
       requestId: created.id,
     });
-  };
+  
+  }); };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title={existingRequest ? 'Edit Loan Application' : 'Loan Application'}
-        subtitle="Static-data application form with local document UI"
+        subtitle="Submit and track your request"
         onBackPress={navigation.goBack}
       />
       {selectedBank ? (
@@ -234,7 +233,7 @@ export function LoanApplicationScreen({navigation, route}: Props) {
       <SectionHeader title="Loan Details" />
       <AppInput
         keyboardType="numeric"
-        label="Loan Amount"
+        label="Property Budget"
         onChangeText={setLoanAmount}
         required
         value={loanAmount}
@@ -273,8 +272,8 @@ export function LoanApplicationScreen({navigation, route}: Props) {
       <SectionHeader title="Documents" />
       <UploadBox
         onPress={handleAddDocument}
-        subtitle="Upload income proof, bank statement or ID placeholders."
-        title="Add Document Placeholder"
+        subtitle="Choose a JPG or PNG image to attach."
+        title="Add Image"
       />
       {documents.map(document => (
         <DocumentCard
@@ -284,19 +283,19 @@ export function LoanApplicationScreen({navigation, route}: Props) {
             setDocuments(current =>
               current.filter(item => item.id !== document.id),
             );
-            showToast('Document removed locally.');
+            showToast('Document removed.');
           }}
           onView={() => showToast(`Viewing ${document.name}.`)}
         />
       ))}
       <View style={styles.actions}>
-        <AppButton
+        <AppButton disabled={busy}
           label="Loan Marketplace"
           onPress={() => navigation.navigate(ROUTES.services.loanMarketplace)}
           style={styles.button}
           variant="outlined"
         />
-        <AppButton
+        <AppButton disabled={busy}
           label={existingRequest ? 'Update Request' : 'Submit Request'}
           onPress={handleSubmit}
           style={styles.button}
@@ -375,3 +374,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+export function LoanApplicationScreen(props: Props) {
+  const load = useLoanStore(state => state.load);
+  const loading = useLoanStore(state => state.loading);
+  const error = useLoanStore(state => state.error);
+  const items = useLoanStore(state => state.requests);
+  useRemoteLoad(load);
+  const id = props.route.params?.requestId;
+  if (id && !items.some(item => item.id === id)) {
+    return <ScreenContainer><AppHeader title="Edit request" onBackPress={props.navigation.goBack} />
+      <RemoteStatus loading={loading} error={error ?? (loading ? null : 'Request unavailable. Retry to refresh.')} retry={() => { void load().catch(() => {}); }} />
+    </ScreenContainer>;
+  }
+  return <LoanApplicationContent key={id ?? 'new'} {...props} />;
+}

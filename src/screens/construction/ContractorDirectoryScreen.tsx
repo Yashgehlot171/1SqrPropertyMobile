@@ -1,4 +1,8 @@
-import React, {useMemo, useState} from 'react';
+import {getServiceProviders} from '@/services/constructionApi';
+import type {DirectoryEntry} from '@/types';
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
+import React, {useCallback, useMemo, useState} from 'react';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
 import {
@@ -24,8 +28,26 @@ type Props = NativeStackScreenProps<
   'ContractorDirectory'
 >;
 
-export function ContractorDirectoryScreen({navigation}: Props) {
-  const contractors = useConstructionStore(state => state.contractors);
+export function ContractorDirectoryScreen({navigation, route}: Props) {
+  const loadConstruction = useConstructionStore(state => state.load);
+  const constructionLoading = useConstructionStore(state => state.loading);
+  const constructionError = useConstructionStore(state => state.error);
+  const storedContractors = useConstructionStore(state => state.contractors);
+  const [providers, setProviders] = useState<DirectoryEntry[]>([]);
+  const [providerLoading, setProviderLoading] = useState(false);
+  const [providerError, setProviderError] = useState<string | null>(null);
+  const serviceType = route.params?.serviceType;
+  const loadRemote = useCallback(async () => {
+    if (!serviceType) { await loadConstruction(); return; }
+    setProviderLoading(true); setProviderError(null);
+    try { setProviders(await getServiceProviders(serviceType)); }
+    catch (error) { setProviderError(error instanceof Error ? error.message : 'Unable to load providers.'); }
+    finally { setProviderLoading(false); }
+  }, [serviceType, loadConstruction]);
+  useRemoteLoad(loadRemote);
+  const remoteLoading = serviceType ? providerLoading : constructionLoading;
+  const remoteError = serviceType ? providerError : constructionError;
+  const contractors = serviceType ? providers : storedContractors;
   const shortlistedContractorIds = useConstructionStore(
     state => state.shortlistedContractorIds,
   );
@@ -53,10 +75,10 @@ export function ContractorDirectoryScreen({navigation}: Props) {
   );
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
-        title="Contractor Directory"
-        subtitle="Static local contractors with local shortlist actions"
+        title={route.params?.title ?? 'Contractor Directory'}
+        subtitle="Available partners; shortlists are saved for this session"
         onBackPress={navigation.goBack}
       />
       <SearchBar

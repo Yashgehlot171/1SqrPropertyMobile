@@ -1,3 +1,5 @@
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React from 'react';
 import {StyleSheet, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -25,11 +27,16 @@ type Props = NativeStackScreenProps<
 >;
 
 export function LegalServicesDashboardScreen({navigation}: Props) {
+  const loadRemote = useLegalStore(state => state.load);
+  const remoteLoading = useLegalStore(state => state.loading);
+  const remoteError = useLegalStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
   const requests = useLegalStore(state => state.requests);
   const teams = useLegalStore(state => state.teams);
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Legal Services"
         subtitle="Verification, registration, tracking and local legal teams"

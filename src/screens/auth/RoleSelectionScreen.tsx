@@ -14,15 +14,17 @@ import type { AuthStackParamList, UserRole } from '@/types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'RoleSelection'>;
 
-const roles: UserRole[] = ['buyer', 'seller', 'broker'];
+// Seller remains supported for historical accounts, but a new normal user does
+// not need that role merely to add their own listing.
+const roles: UserRole[] = ['buyer', 'broker'];
 
 const roleMeta: Record<
   UserRole,
   { title: string; description: string; icon: string }
 > = {
   buyer: {
-    title: 'Buyer',
-    description: 'I want to buy or rent properties',
+    title: 'Normal User',
+    description: 'Browse, list your own property and manage construction needs',
     icon: 'business-outline',
   },
   seller: {

@@ -1,3 +1,4 @@
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
 import React, {useCallback, useEffect, useRef} from 'react';
 import {
   ActivityIndicator,
@@ -35,8 +36,14 @@ export function ProfileScreen({navigation}: Props) {
   );
   const profileError = useAuthStore(state => state.profileError);
   const refreshProfile = useAuthStore(state => state.refreshProfile);
-  const properties = usePropertyStore(state => state.properties);
+  const properties = usePropertyStore(state => state.ownProperties);
+  const loadMine = usePropertyStore(state => state.loadMine);
+  const loadLeads = useLeadStore(state => state.load);
+  useRemoteLoad(loadMine);
+  useRemoteLoad(loadLeads);
   const leads = useLeadStore(state => state.leads);
+  const loadNotifications = useNotificationStore(state => state.load);
+  useRemoteLoad(loadNotifications);
   const notifications = useNotificationStore(state => state.notifications);
   const favouriteIds = useSavedStore(state => state.favouriteIds);
   const hasFetchedProfile = useRef(false);

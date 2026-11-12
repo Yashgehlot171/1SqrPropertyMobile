@@ -16,6 +16,7 @@ export async function openWhatsAppForFinanceTeam(
   bank: LoanBank,
   context: string,
 ): Promise<void> {
+  if (!bank.whatsapp) { showToast('WhatsApp contact is not available.'); return; }
   const message = encodeURIComponent(
     `Hi ${bank.contactPerson}, I need help with ${context} from UrbanKart finance services.`,
   );

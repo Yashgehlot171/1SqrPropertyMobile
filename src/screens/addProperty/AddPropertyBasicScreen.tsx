@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -10,6 +10,7 @@ import { typography } from '@/constants/typography';
 import { useMasterOptions } from '@/hooks/useMasterOptions';
 import { usePropertyStore } from '@/store/propertyStore';
 import type { AddPropertyStackParamList, PropertyType } from '@/types';
+import { KeyboardAwareScrollView } from '@/components';
 
 import {
   AddPropertyHeader,
@@ -91,7 +92,7 @@ export function AddPropertyBasicScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -119,7 +120,10 @@ export function AddPropertyBasicScreen({ navigation, route }: Props) {
             <View style={styles.typeGrid}>
               {propertyTypes.items.map(item => (
                 <TypeOptionCard
-                  icon={propertyTypeIcons[item.name as PropertyType] ?? 'business-outline'}
+                  icon={
+                    propertyTypeIcons[item.name as PropertyType] ??
+                    'business-outline'
+                  }
                   isSelected={draft.propertyType === item.name}
                   key={item.id}
                   label={item.name}
@@ -218,7 +222,7 @@ export function AddPropertyBasicScreen({ navigation, route }: Props) {
         >
           Reset Draft
         </Text>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

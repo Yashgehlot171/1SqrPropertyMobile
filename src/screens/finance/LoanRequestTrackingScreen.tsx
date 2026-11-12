@@ -1,3 +1,5 @@
+import {useRemoteLoad, useRemoteAction} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -28,6 +30,12 @@ type Props = NativeStackScreenProps<
 type RequestFilter = 'All' | LoanStatus;
 
 export function LoanRequestTrackingScreen({navigation}: Props) {
+  const loadRemote = useLoanStore(state => state.load);
+  const remoteLoading = useLoanStore(state => state.loading);
+  const remoteError = useLoanStore(state => state.error);
+  useRemoteLoad(loadRemote);
+  const {run, busy} = useRemoteAction();
+
   const requests = useLoanStore(state => state.requests);
   const banks = useLoanStore(state => state.banks);
   const deleteRequest = useLoanStore(state => state.deleteRequest);
@@ -55,7 +63,7 @@ export function LoanRequestTrackingScreen({navigation}: Props) {
   );
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Loan Request Tracking"
         subtitle="View, edit, delete and monitor local loan requests"
@@ -85,7 +93,7 @@ export function LoanRequestTrackingScreen({navigation}: Props) {
           </Pressable>
         ))}
       </View>
-      <AppButton
+      <AppButton disabled={busy}
         label="Add New Request"
         onPress={() => navigation.navigate(ROUTES.services.loanApplication)}
       />
@@ -124,13 +132,14 @@ export function LoanRequestTrackingScreen({navigation}: Props) {
             : 'Delete this request?'
         }
         onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
+        onConfirm={() => { return run(async () => {
           if (deleteTarget) {
-            deleteRequest(deleteTarget.id);
-            showToast('Loan request deleted locally.');
+            await deleteRequest(deleteTarget.id);
+            showToast('Loan request deleted.');
           }
           setDeleteTarget(null);
-        }}
+        
+  }); }}
         title="Delete Loan Request"
         visible={Boolean(deleteTarget)}
       />

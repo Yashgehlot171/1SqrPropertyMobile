@@ -1,3 +1,6 @@
+import {pickRequestAttachment} from '@/services/requestAttachment';
+import {useRemoteLoad, useRemoteAction} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -31,6 +34,12 @@ import {showToast} from '@/utils/toast';
 type Props = NativeStackScreenProps<ServicesStackParamList, 'SupportTicketDetail'>;
 
 export function SupportTicketDetailScreen({navigation, route}: Props) {
+  const loadRemote = useSupportStore(state => state.load);
+  const remoteLoading = useSupportStore(state => state.loading);
+  const remoteError = useSupportStore(state => state.error);
+  useRemoteLoad(loadRemote);
+  const {run, busy} = useRemoteAction();
+
   const tickets = useSupportStore(state => state.tickets);
   const updateTicketStatus = useSupportStore(state => state.updateTicketStatus);
   const addRemark = useSupportStore(state => state.addRemark);
@@ -56,17 +65,17 @@ export function SupportTicketDetailScreen({navigation, route}: Props) {
 
   if (!ticket) {
     return (
-      <ScreenContainer>
+      <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
         <AppHeader title="Support Ticket" onBackPress={navigation.goBack} />
         <EmptyState
-          description="This support ticket is not available in the local workflow."
+          description="This support ticket is not available in the account."
           title="Support ticket not found"
         />
       </ScreenContainer>
     );
   }
 
-  const handleSaveRemark = () => {
+  const handleSaveRemark = () => { return run(async () => {
     const trimmed = remarkText.trim();
     if (!trimmed) {
       showToast('Remark text is required.');
@@ -74,19 +83,20 @@ export function SupportTicketDetailScreen({navigation, route}: Props) {
     }
 
     if (editingRemark) {
-      editRemark(ticket.id, editingRemark.id, trimmed);
+      await editRemark(ticket.id, editingRemark.id, trimmed);
       setEditingRemark(null);
-      showToast('Remark updated locally.');
+      showToast('Remark updated.');
     } else {
-      addRemark(ticket.id, trimmed);
-      showToast('Remark added locally.');
+      await addRemark(ticket.id, trimmed);
+      showToast('Remark added.');
     }
 
     setRemarkText('');
-  };
+  
+  }); };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Support Ticket Detail"
         subtitle={ticket.issueType}
@@ -103,7 +113,7 @@ export function SupportTicketDetailScreen({navigation, route}: Props) {
         </View>
       </View>
       <View style={styles.actions}>
-        <AppButton
+        <AppButton disabled={busy}
           label="Edit Ticket"
           onPress={() =>
             navigation.navigate(ROUTES.services.supportTicketForm, {
@@ -113,7 +123,7 @@ export function SupportTicketDetailScreen({navigation, route}: Props) {
           style={styles.button}
           variant="outlined"
         />
-        <AppButton
+        <AppButton disabled={busy}
           label="Delete Ticket"
           onPress={() => setShowDeleteTicket(true)}
           style={styles.button}
@@ -126,10 +136,11 @@ export function SupportTicketDetailScreen({navigation, route}: Props) {
           {SUPPORT_TICKET_STATUSES.map(status => (
             <Pressable
               key={status}
-              onPress={() => {
-                updateTicketStatus(ticket.id, status as SupportTicketStatus);
+              onPress={() => { return run(async () => {
+                await updateTicketStatus(ticket.id, status as SupportTicketStatus, remarkText.trim() || undefined);
                 showToast(`Support ticket updated to ${status}.`);
-              }}
+              
+  }); }}
               style={[
                 styles.statusChip,
                 ticket.status === status && styles.statusChipSelected,
@@ -148,27 +159,23 @@ export function SupportTicketDetailScreen({navigation, route}: Props) {
       <View style={styles.card}>
         <SectionHeader title="Attachments" />
         <UploadBox
-          onPress={() => {
-            const nextIndex = ticket.documents.length + 1;
-            addDocument(ticket.id, {
-              name: `Support Attachment ${nextIndex}`,
-              type: 'PDF',
-              uri: `local://support-request-document-${nextIndex}`,
-            });
-            showToast('Document placeholder added locally.');
-          }}
+          onPress={() => run(async () => {
+    const document = await pickRequestAttachment('support');
+    if (document) { await addDocument(ticket.id, document); }
+  })}
           subtitle="Add screenshots or proof placeholders to this ticket."
-          title="Upload Attachment Placeholder"
+          title="Upload Image"
         />
         {ticket.documents.length ? (
           ticket.documents.map(document => (
             <DocumentCard
               document={document}
               key={document.id}
-              onDelete={() => {
-                removeDocument(ticket.id, document.id);
-                showToast('Document deleted locally.');
-              }}
+              onDelete={() => { return run(async () => {
+                await removeDocument(ticket.id, document.id);
+                showToast('Document deleted.');
+              
+  }); }}
               onView={() => showToast(`Viewing ${document.name}.`)}
             />
           ))
@@ -182,13 +189,13 @@ export function SupportTicketDetailScreen({navigation, route}: Props) {
           label={editingRemark ? 'Edit Remark' : 'Add Remark'}
           multiline
           onChangeText={setRemarkText}
-          placeholder="Add an internal support remark"
+          placeholder="Add a message (required when closing a ticket)"
           required
           value={remarkText}
         />
         <View style={styles.actions}>
           {editingRemark ? (
-            <AppButton
+            <AppButton disabled={busy}
               label="Cancel Edit"
               onPress={() => {
                 setEditingRemark(null);
@@ -198,7 +205,7 @@ export function SupportTicketDetailScreen({navigation, route}: Props) {
               variant="outlined"
             />
           ) : null}
-          <AppButton
+          <AppButton disabled={busy}
             label={editingRemark ? 'Update Remark' : 'Add Remark'}
             onPress={handleSaveRemark}
             style={styles.button}
@@ -209,11 +216,8 @@ export function SupportTicketDetailScreen({navigation, route}: Props) {
           ticket.remarks.map(remark => (
             <RemarkCard
               key={remark.id}
-              onDelete={() => setDeleteTarget(remark)}
-              onEdit={() => {
-                setEditingRemark(remark);
-                setRemarkText(remark.text);
-              }}
+              
+              
               remark={remark}
             />
           ))
@@ -244,26 +248,28 @@ export function SupportTicketDetailScreen({navigation, route}: Props) {
             : 'Delete this remark?'
         }
         onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
+        onConfirm={() => { return run(async () => {
           if (deleteTarget) {
-            deleteRemark(ticket.id, deleteTarget.id);
-            showToast('Remark deleted locally.');
+            await deleteRemark(ticket.id, deleteTarget.id);
+            showToast('Remark deleted.');
           }
           setDeleteTarget(null);
-        }}
+        
+  }); }}
         title="Delete Remark"
         visible={Boolean(deleteTarget)}
       />
       <ConfirmationModal
         confirmLabel="Delete"
-        message="Delete this local support ticket?"
+        message="Delete this support ticket?"
         onCancel={() => setShowDeleteTicket(false)}
-        onConfirm={() => {
-          deleteTicket(ticket.id);
+        onConfirm={() => { return run(async () => {
+          await deleteTicket(ticket.id);
           setShowDeleteTicket(false);
-          showToast('Support ticket deleted locally.');
+          showToast('Support ticket deleted.');
           navigation.goBack();
-        }}
+        
+  }); }}
         title="Delete Support Ticket"
         visible={showDeleteTicket}
       />

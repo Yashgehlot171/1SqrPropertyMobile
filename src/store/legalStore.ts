@@ -1,156 +1,71 @@
 import {create} from 'zustand';
-
-import {mockLegalRequests, mockLegalTeams} from '@/data/mockLegal';
-import {generateId} from '@/services/serviceUtils';
-import type {
-  LegalRequest,
-  LegalStatus,
-  LegalTeam,
-  UploadedDocument,
-} from '@/types';
+import * as api from '@/services/legalApi';
+import {useAuthStore} from './authStore';
+import type {LegalRequest, LegalStatus, UploadedDocument, LegalTeam} from '@/types';
 
 interface LegalStore {
-  teams: LegalTeam[];
   requests: LegalRequest[];
-  addRequest: (payload: Omit<LegalRequest, 'id' | 'createdAt'>) => LegalRequest;
-  updateRequest: (requestId: string, updates: Partial<LegalRequest>) => void;
-  deleteRequest: (requestId: string) => void;
-  updateRequestStatus: (requestId: string, status: LegalStatus) => void;
-  addRemark: (requestId: string, text: string, addedBy?: string) => void;
-  editRemark: (requestId: string, remarkId: string, text: string) => void;
-  deleteRemark: (requestId: string, remarkId: string) => void;
-  addDocument: (
-    requestId: string,
-    document: Omit<UploadedDocument, 'id' | 'uploadedAt' | 'status'>,
-  ) => void;
-  removeDocument: (requestId: string, documentId: string) => void;
+  teams: LegalTeam[];
+  loading: boolean;
+  error: string | null;
+  load: () => Promise<void>;
+  addRequest: (payload: Omit<LegalRequest, 'id' | 'createdAt'>) => Promise<LegalRequest>;
+  updateRequest: (id: string, payload: Partial<LegalRequest>) => Promise<void>;
+  deleteRequest: (id: string) => Promise<void>;
+  updateRequestStatus: (id: string, status: LegalStatus, remark?: string) => Promise<void>;
+  addRemark: (id: string, text: string) => Promise<void>;
+  editRemark: (id: string, remarkId: string, text: string) => Promise<void>;
+  deleteRemark: (id: string, remarkId: string) => Promise<void>;
+  addDocument: (id: string, document: UploadedDocument) => Promise<void>;
+  removeDocument: (id: string, documentId: string) => Promise<void>;
 }
-
-export const useLegalStore = create<LegalStore>(set => ({
-  teams: mockLegalTeams,
-  requests: mockLegalRequests,
-  addRequest: payload => {
-    const created: LegalRequest = {
-      ...payload,
-      id: generateId('legal'),
-      createdAt: new Date().toISOString(),
-    };
-
-    set(state => ({
-      requests: [created, ...state.requests],
-    }));
-
-    return created;
-  },
-  updateRequest: (requestId, updates) =>
-    set(state => ({
-      requests: state.requests.map(item =>
-        item.id === requestId ? {...item, ...updates} : item,
-      ),
-    })),
-  deleteRequest: requestId =>
-    set(state => ({
-      requests: state.requests.filter(item => item.id !== requestId),
-    })),
-  updateRequestStatus: (requestId, status) =>
-    set(state => ({
-      requests: state.requests.map(item =>
-        item.id === requestId
-          ? {
-              ...item,
-              status,
-              history: [
-                {
-                  id: generateId('legal-history'),
-                  status,
-                  updatedBy: 'Legal Team',
-                  updatedAt: new Date().toISOString(),
-                },
-                ...item.history,
-              ],
-            }
-          : item,
-      ),
-    })),
-  addRemark: (requestId, text, addedBy = 'Legal Team') =>
-    set(state => ({
-      requests: state.requests.map(item =>
-        item.id === requestId
-          ? {
-              ...item,
-              remarks: [
-                {
-                  id: generateId('legal-remark'),
-                  text,
-                  addedBy,
-                  date: new Date().toISOString(),
-                },
-                ...item.remarks,
-              ],
-            }
-          : item,
-      ),
-    })),
-  editRemark: (requestId, remarkId, text) =>
-    set(state => ({
-      requests: state.requests.map(item => {
-        if (item.id !== requestId) {
-          return item;
-        }
-
-        return {
-          ...item,
-          remarks: item.remarks.map(remark =>
-            remark.id === remarkId
-              ? {
-                  ...remark,
-                  text,
-                  date: new Date().toISOString(),
-                }
-              : remark,
-          ),
-        };
-      }),
-    })),
-  deleteRemark: (requestId, remarkId) =>
-    set(state => ({
-      requests: state.requests.map(item =>
-        item.id === requestId
-          ? {
-              ...item,
-              remarks: item.remarks.filter(remark => remark.id !== remarkId),
-            }
-          : item,
-      ),
-    })),
-  addDocument: (requestId, document) =>
-    set(state => ({
-      requests: state.requests.map(item =>
-        item.id === requestId
-          ? {
-              ...item,
-              documents: [
-                {
-                  ...document,
-                  id: generateId('legal-document'),
-                  uploadedAt: new Date().toISOString(),
-                  status: 'uploaded',
-                },
-                ...item.documents,
-              ],
-            }
-          : item,
-      ),
-    })),
-  removeDocument: (requestId, documentId) =>
-    set(state => ({
-      requests: state.requests.map(item =>
-        item.id === requestId
-          ? {
-              ...item,
-              documents: item.documents.filter(doc => doc.id !== documentId),
-            }
-          : item,
-      ),
-    })),
-}));
+let epoch = 0;
+const unsupported = async () => { throw new Error('This action is not available.'); };
+export const useLegalStore = create<LegalStore>((set, get) => {
+  const replace = (item: LegalRequest) => set(state => ({requests: state.requests.some(row => row.id === item.id)
+    ? state.requests.map(row => row.id === item.id ? item : row) : [item, ...state.requests]}));
+  const commit = async <T,>(work: () => Promise<T>, apply: (value: T) => void): Promise<T> => {
+    const started = epoch;
+    const value = await work();
+    if (started !== epoch) { throw new Error('Your session changed. Please try again.'); }
+    apply(value);
+    return value;
+  };
+  return {
+    requests: [], teams: [], loading: false, error: null,
+    load: async () => {
+      if (get().loading) { return; }
+      const started = epoch;
+      set({loading: true, error: null});
+      try {
+        const [items, options] = await Promise.all([api.getLegalRequests(), api.getLegalTeams()]);
+        if (started === epoch) { set({requests: items, teams: options, loading: false}); }
+      } catch (error) {
+        if (started === epoch) { set({loading: false, error: error instanceof Error ? error.message : 'Unable to load data.'}); }
+        throw error;
+      }
+    },
+    addRequest: payload => commit(() => api.addLegalRequest(payload), replace),
+    updateRequest: async (id, payload) => { await commit(() => api.updateLegalRequest(id, payload), replace); },
+    deleteRequest: async id => { await commit(() => api.deleteLegalRequest(id), () => set(state => ({requests: state.requests.filter(row => row.id !== id)}))); },
+    updateRequestStatus: unsupported,
+    addRemark: async (id, text) => { await commit(() => api.addLegalRemark(id, text), replace); },
+    editRemark: unsupported, deleteRemark: unsupported,
+    addDocument: async (id, document) => {
+      const item = get().requests.find(row => row.id === id);
+      if (!item) { throw new Error('Request no longer available.'); }
+      await get().updateRequest(id, {documents: [...item.documents, document]});
+    },
+    removeDocument: async (id, documentId) => {
+      const item = get().requests.find(row => row.id === id);
+      if (!item) { throw new Error('Request no longer available.'); }
+      await get().updateRequest(id, {documents: item.documents.filter(doc => doc.id !== documentId)});
+    },
+  };
+});
+useAuthStore.subscribe((state, previous) => {
+  if (state.user?.id !== previous.user?.id || state.isLoggedIn !== previous.isLoggedIn) {
+    epoch += 1;
+    useLegalStore.setState({requests: [], teams: [], loading: false, error: null});
+  }
+});

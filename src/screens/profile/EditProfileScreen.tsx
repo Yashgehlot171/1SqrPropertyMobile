@@ -1,3 +1,4 @@
+import {resolveCityId} from '@/services/locationApi';
 import React, {useState} from 'react';
 import {StyleSheet, Text} from 'react-native';
 
@@ -95,7 +96,7 @@ export function EditProfileScreen({navigation}: Props) {
       await updateUser({
         name: trimmedName,
         email: trimmedEmail,
-        cityId: user?.cityId,
+        cityId: trimmedCity === user?.city && user.cityId ? user.cityId : await resolveCityId(trimmedCity),
       });
       showToast('Profile updated successfully.');
       navigation.goBack();

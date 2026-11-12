@@ -16,6 +16,7 @@ export async function openWhatsAppForDirectoryPartner(
   entry: DirectoryEntry,
   context: string,
 ): Promise<void> {
+  if (!entry.whatsapp) { showToast('WhatsApp contact is not available.'); return; }
   const message = encodeURIComponent(
     `Hi ${entry.name}, I need help with ${context} from UrbanKart services.`,
   );

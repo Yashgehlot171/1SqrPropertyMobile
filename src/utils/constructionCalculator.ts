@@ -11,6 +11,22 @@ const COST_MAP: Record<ConstructionQuality, number> = {
   'Ultra Luxury': 3800,
 };
 
+export function calculateCornerPlotArea(params: {
+  lengthFt: number;
+  widthFt: number;
+  isCornerPlot: boolean;
+}) {
+  const plotAreaSqFt = params.lengthFt * params.widthFt;
+  const cornerAdditionSqFt = params.isCornerPlot
+    ? 2.5 * (params.lengthFt + params.widthFt)
+    : 0;
+  return {
+    plotAreaSqFt,
+    cornerAdditionSqFt,
+    totalConstructionAreaSqFt: plotAreaSqFt + cornerAdditionSqFt,
+  };
+}
+
 export function calculateConstructionQuote(params: {
   plotSizeSqFt: number;
   builtUpAreaSqFt: number;

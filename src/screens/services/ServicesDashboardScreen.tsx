@@ -1,24 +1,22 @@
 import React from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
-import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-import {
-  AppHeader,
-  EmptyState,
-  ScreenContainer,
-} from '@/components';
-import {colors} from '@/constants/colors';
-import {ROUTES} from '@/constants/routes';
-import {spacing} from '@/constants/spacing';
-import {typography} from '@/constants/typography';
-import {useConstructionStore} from '@/store/constructionStore';
-import type {ServicesStackParamList} from '@/types';
-import {showToast} from '@/utils/toast';
+import { AppHeader, EmptyState, ScreenContainer } from '@/components';
+import { colors } from '@/constants/colors';
+import { ROUTES } from '@/constants/routes';
+import { spacing } from '@/constants/spacing';
+import { typography } from '@/constants/typography';
+import { useConstructionStore } from '@/store/constructionStore';
+import type { ServicesStackParamList } from '@/types';
 
-type Props = NativeStackScreenProps<ServicesStackParamList, 'ServicesDashboard'>;
+type Props = NativeStackScreenProps<
+  ServicesStackParamList,
+  'ServicesDashboard'
+>;
 
-export function ServicesDashboardScreen({navigation}: Props) {
+export function ServicesDashboardScreen({ navigation }: Props) {
   const quotes = useConstructionStore(state => state.quotes);
   const requests = useConstructionStore(state => state.requests);
   const shortlistedPartners =
@@ -36,17 +34,28 @@ export function ServicesDashboardScreen({navigation}: Props) {
       <ServiceGroup title="Construction Services">
         <ServiceTile
           icon="construct-outline"
-          onPress={() => navigation.navigate(ROUTES.services.constructionDashboard)}
+          onPress={() =>
+            navigation
+              .getParent<any>()
+              ?.navigate(ROUTES.tabs.homeStack, {
+                screen: ROUTES.home.constructionRequirement,
+                params: {},
+              })
+          }
           title="Construction Services"
         />
         <ServiceTile
           icon="home-outline"
-          onPress={() => navigation.navigate(ROUTES.services.houseConstructionPackages)}
+          onPress={() =>
+            navigation.navigate(ROUTES.services.houseConstructionPackages)
+          }
           title="House Construction"
         />
         <ServiceTile
           icon="calculator-outline"
-          onPress={() => navigation.navigate(ROUTES.services.constructionCostCalculator)}
+          onPress={() =>
+            navigation.navigate(ROUTES.services.constructionCostCalculator)
+          }
           title="Cost Calculator"
         />
         <ServiceTile
@@ -56,7 +65,9 @@ export function ServicesDashboardScreen({navigation}: Props) {
         />
         <ServiceTile
           icon="people-outline"
-          onPress={() => navigation.navigate(ROUTES.services.contractorDirectory)}
+          onPress={() =>
+            navigation.navigate(ROUTES.services.contractorDirectory)
+          }
           title="Contractors"
         />
       </ServiceGroup>
@@ -74,7 +85,9 @@ export function ServicesDashboardScreen({navigation}: Props) {
         />
         <ServiceTile
           icon="document-text-outline"
-          onPress={() => navigation.navigate(ROUTES.services.loanRequestTracking)}
+          onPress={() =>
+            navigation.navigate(ROUTES.services.loanRequestTracking)
+          }
           title="Loan Requests"
         />
       </ServiceGroup>
@@ -96,7 +109,9 @@ export function ServicesDashboardScreen({navigation}: Props) {
         />
         <ServiceTile
           icon="documents-outline"
-          onPress={() => navigation.navigate(ROUTES.services.legalRequestTracking)}
+          onPress={() =>
+            navigation.navigate(ROUTES.services.legalRequestTracking)
+          }
           title="Legal Requests"
         />
       </ServiceGroup>
@@ -109,22 +124,22 @@ export function ServicesDashboardScreen({navigation}: Props) {
         />
         <ServiceTile
           icon="business-outline"
-          onPress={() => {
-            showToast(
-              'Architect partner discovery will be connected during API integration. Use Contractors for local workflow testing.',
-            );
-            navigation.navigate(ROUTES.services.contractorDirectory);
-          }}
+          onPress={() =>
+            navigation.navigate(ROUTES.services.contractorDirectory, {
+              serviceType: 'architect',
+              title: 'Architects',
+            })
+          }
           title="Architects"
         />
         <ServiceTile
           icon="color-palette-outline"
-          onPress={() => {
-            showToast(
-              'Interior designer discovery will be connected during API integration. Use Suppliers and Contractors for local workflow testing.',
-            );
-            navigation.navigate(ROUTES.services.supplierDirectory);
-          }}
+          onPress={() =>
+            navigation.navigate(ROUTES.services.contractorDirectory, {
+              serviceType: 'interior-designer',
+              title: 'Interior Designers',
+            })
+          }
           title="Interior Designers"
         />
       </ServiceGroup>
@@ -135,7 +150,7 @@ export function ServicesDashboardScreen({navigation}: Props) {
       </Text>
       {!quotes.length && !requests.length ? (
         <EmptyState
-          description="Open construction, finance, legal or support to start local service workflows."
+          description="Open construction, finance, legal or support to submit a service request."
           title="No service activity yet"
         />
       ) : null}
@@ -225,7 +240,7 @@ const styles = StyleSheet.create({
     shadowColor: colors.primary,
     shadowOpacity: 0.04,
     shadowRadius: 10,
-    shadowOffset: {width: 0, height: 6},
+    shadowOffset: { width: 0, height: 6 },
     elevation: 1,
   },
   tileTitle: {

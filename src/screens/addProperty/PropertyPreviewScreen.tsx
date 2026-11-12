@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 import { normalizeApiError, showApiError } from '@/api';
-import { ConfirmationModal, EmptyState } from '@/components';
+import {
+  ConfirmationModal,
+  EmptyState,
+  KeyboardAwareScrollView,
+} from '@/components';
 import { colors } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { spacing } from '@/constants/spacing';
@@ -188,7 +192,7 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -346,7 +350,7 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
             onPress={() => setShowDeleteConfirm(true)}
           />
         ) : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <ConfirmationModal
         confirmLabel="Delete"

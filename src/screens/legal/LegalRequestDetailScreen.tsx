@@ -1,5 +1,8 @@
+import {pickRequestAttachment} from '@/services/requestAttachment';
+import {useRemoteLoad, useRemoteAction} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
 import {
@@ -15,14 +18,12 @@ import {
   StatusChip,
   UploadBox,
 } from '@/components';
-import {LEGAL_STATUSES} from '@/constants/appConstants';
 import {colors} from '@/constants/colors';
 import {ROUTES} from '@/constants/routes';
 import {spacing} from '@/constants/spacing';
 import {typography} from '@/constants/typography';
 import {useLegalStore} from '@/store/legalStore';
 import type {
-  LegalStatus,
   Remark,
   ServicesStackParamList,
 } from '@/types';
@@ -32,9 +33,14 @@ import {showToast} from '@/utils/toast';
 type Props = NativeStackScreenProps<ServicesStackParamList, 'LegalRequestDetail'>;
 
 export function LegalRequestDetailScreen({navigation, route}: Props) {
+  const loadRemote = useLegalStore(state => state.load);
+  const remoteLoading = useLegalStore(state => state.loading);
+  const remoteError = useLegalStore(state => state.error);
+  useRemoteLoad(loadRemote);
+  const {run, busy} = useRemoteAction();
+
   const requests = useLegalStore(state => state.requests);
   const teams = useLegalStore(state => state.teams);
-  const updateRequestStatus = useLegalStore(state => state.updateRequestStatus);
   const addRemark = useLegalStore(state => state.addRemark);
   const editRemark = useLegalStore(state => state.editRemark);
   const deleteRemark = useLegalStore(state => state.deleteRemark);
@@ -59,17 +65,17 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
 
   if (!request) {
     return (
-      <ScreenContainer>
+      <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
         <AppHeader title="Legal Request Detail" onBackPress={navigation.goBack} />
         <EmptyState
-          description="This legal request is not available in the local workflow."
+          description="This legal request is not available in the account."
           title="Legal request not found"
         />
       </ScreenContainer>
     );
   }
 
-  const handleSaveRemark = () => {
+  const handleSaveRemark = () => { return run(async () => {
     const trimmed = remarkText.trim();
     if (!trimmed) {
       showToast('Remark text is required.');
@@ -77,19 +83,20 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
     }
 
     if (editingRemark) {
-      editRemark(request.id, editingRemark.id, trimmed);
+      await editRemark(request.id, editingRemark.id, trimmed);
       setEditingRemark(null);
-      showToast('Remark updated locally.');
+      showToast('Remark updated.');
     } else {
-      addRemark(request.id, trimmed);
-      showToast('Remark added locally.');
+      await addRemark(request.id, trimmed);
+      showToast('Remark added.');
     }
 
     setRemarkText('');
-  };
+  
+  }); };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Legal Request Detail"
         subtitle={request.type}
@@ -109,7 +116,7 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
         </View>
       </View>
       <View style={styles.actions}>
-        <AppButton
+        <AppButton disabled={busy}
           label="Edit Request"
           onPress={() =>
             navigation.navigate(
@@ -122,7 +129,7 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
           style={styles.button}
           variant="outlined"
         />
-        <AppButton
+        <AppButton disabled={busy}
           label="Delete Request"
           onPress={() => setShowDeleteRequest(true)}
           style={styles.button}
@@ -131,7 +138,7 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
       </View>
       {team ? (
         <View style={styles.actions}>
-          <AppButton
+          <AppButton disabled={busy}
             label="Call Team"
             onPress={() => {
               void callLegalTeam(team);
@@ -139,7 +146,7 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
             style={styles.button}
             variant="outlined"
           />
-          <AppButton
+          <AppButton disabled={busy}
             label="WhatsApp Team"
             onPress={() => {
               void openWhatsAppForLegalTeam(team, 'the current legal request');
@@ -161,55 +168,27 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
           value={request.preferredRegistrationDate ?? 'N/A'}
         />
       </View>
-      <View style={styles.card}>
-        <SectionHeader title="Status Update" />
-        <View style={styles.statusRow}>
-          {LEGAL_STATUSES.map(status => (
-            <Pressable
-              key={status}
-              onPress={() => {
-                updateRequestStatus(request.id, status as LegalStatus);
-                showToast(`Legal request updated to ${status}.`);
-              }}
-              style={[
-                styles.statusChip,
-                request.status === status && styles.statusChipSelected,
-              ]}>
-              <Text
-                style={[
-                  styles.statusChipText,
-                  request.status === status && styles.statusChipTextSelected,
-                ]}>
-                {status}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
+
       <View style={styles.card}>
         <SectionHeader title="Documents" />
         <UploadBox
-          onPress={() => {
-            const nextIndex = request.documents.length + 1;
-            addDocument(request.id, {
-              name: `Legal Document ${nextIndex}`,
-              type: 'PDF',
-              uri: `local://legal-request-document-${nextIndex}`,
-            });
-            showToast('Document placeholder added locally.');
-          }}
+          onPress={() => run(async () => {
+    const document = await pickRequestAttachment('legal');
+    if (document) { await addDocument(request.id, document); }
+  })}
           subtitle="Add property papers or ID proof placeholders to this request."
-          title="Upload Document Placeholder"
+          title="Upload Image"
         />
         {request.documents.length ? (
           request.documents.map(document => (
             <DocumentCard
               document={document}
               key={document.id}
-              onDelete={() => {
-                removeDocument(request.id, document.id);
-                showToast('Document deleted locally.');
-              }}
+              onDelete={() => { return run(async () => {
+                await removeDocument(request.id, document.id);
+                showToast('Document deleted.');
+              
+  }); }}
               onView={() => showToast(`Viewing ${document.name}.`)}
             />
           ))
@@ -229,7 +208,7 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
         />
         <View style={styles.actions}>
           {editingRemark ? (
-            <AppButton
+            <AppButton disabled={busy}
               label="Cancel Edit"
               onPress={() => {
                 setEditingRemark(null);
@@ -239,7 +218,7 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
               variant="outlined"
             />
           ) : null}
-          <AppButton
+          <AppButton disabled={busy}
             label={editingRemark ? 'Update Remark' : 'Add Remark'}
             onPress={handleSaveRemark}
             style={styles.button}
@@ -250,11 +229,8 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
           request.remarks.map(remark => (
             <RemarkCard
               key={remark.id}
-              onDelete={() => setDeleteTarget(remark)}
-              onEdit={() => {
-                setEditingRemark(remark);
-                setRemarkText(remark.text);
-              }}
+              
+              
               remark={remark}
             />
           ))
@@ -285,26 +261,28 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
             : 'Delete this remark?'
         }
         onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
+        onConfirm={() => { return run(async () => {
           if (deleteTarget) {
-            deleteRemark(request.id, deleteTarget.id);
-            showToast('Remark deleted locally.');
+            await deleteRemark(request.id, deleteTarget.id);
+            showToast('Remark deleted.');
           }
           setDeleteTarget(null);
-        }}
+        
+  }); }}
         title="Delete Remark"
         visible={Boolean(deleteTarget)}
       />
       <ConfirmationModal
         confirmLabel="Delete"
-        message="Delete this local legal request?"
+        message="Delete this legal request?"
         onCancel={() => setShowDeleteRequest(false)}
-        onConfirm={() => {
-          deleteRequest(request.id);
+        onConfirm={() => { return run(async () => {
+          await deleteRequest(request.id);
           setShowDeleteRequest(false);
-          showToast('Legal request deleted locally.');
+          showToast('Legal request deleted.');
           navigation.goBack();
-        }}
+        
+  }); }}
         title="Delete Legal Request"
         visible={showDeleteRequest}
       />

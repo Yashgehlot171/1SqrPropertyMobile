@@ -1,12 +1,13 @@
-import React, {useState} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
-import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import { useRemoteLoad } from '@/hooks/useRemoteFlow';
+import { RemoteStatus } from '@/components/common/RemoteStatus';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import {
   AppButton,
   AppHeader,
   BannerCard,
-  ConfirmationModal,
   EmptyState,
   ScreenContainer,
   SectionHeader,
@@ -14,35 +15,36 @@ import {
   StatCard,
   StatusChip,
 } from '@/components';
-import {colors} from '@/constants/colors';
-import {ROUTES} from '@/constants/routes';
-import {spacing} from '@/constants/spacing';
-import {typography} from '@/constants/typography';
-import {useConstructionStore} from '@/store/constructionStore';
-import type {ConstructionRequest, ServicesStackParamList} from '@/types';
-import {formatCurrency} from '@/utils/formatCurrency';
-import {shareConstructionQuote} from '@/utils/constructionActions';
-import {formatDate} from '@/utils/dateUtils';
-import {showToast} from '@/utils/toast';
+import { colors } from '@/constants/colors';
+import { ROUTES } from '@/constants/routes';
+import { spacing } from '@/constants/spacing';
+import { typography } from '@/constants/typography';
+import { useConstructionStore } from '@/store/constructionStore';
+import type { ServicesStackParamList } from '@/types';
+import { formatCurrency } from '@/utils/formatCurrency';
+import { shareConstructionQuote } from '@/utils/constructionActions';
+import { formatDate } from '@/utils/dateUtils';
+import { showToast } from '@/utils/toast';
 
 type Props = NativeStackScreenProps<
   ServicesStackParamList,
   'ConstructionDashboard'
 >;
 
-export function ConstructionDashboardScreen({navigation}: Props) {
+export function ConstructionDashboardScreen({ navigation }: Props) {
+  const loadRemote = useConstructionStore(state => state.load);
+  const remoteLoading = useConstructionStore(state => state.loading);
+  const remoteError = useConstructionStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
   const packages = useConstructionStore(state => state.packages);
   const quotes = useConstructionStore(state => state.quotes);
   const requests = useConstructionStore(state => state.requests);
-  const deleteRequest = useConstructionStore(state => state.deleteRequest);
   const shortlistedSuppliers = useConstructionStore(
     state => state.shortlistedSupplierIds.length,
   );
   const shortlistedContractors = useConstructionStore(
     state => state.shortlistedContractorIds.length,
-  );
-  const [deleteTarget, setDeleteTarget] = useState<ConstructionRequest | null>(
-    null,
   );
 
   const latestQuote = quotes[0];
@@ -50,6 +52,13 @@ export function ConstructionDashboardScreen({navigation}: Props) {
 
   return (
     <ScreenContainer>
+      <RemoteStatus
+        loading={remoteLoading}
+        error={remoteError}
+        retry={() => {
+          void loadRemote().catch(() => {});
+        }}
+      />
       <AppHeader
         title="Construction Services"
         subtitle="Packages, calculator, quotations, materials and directory"
@@ -62,8 +71,21 @@ export function ConstructionDashboardScreen({navigation}: Props) {
           shortlisted suppliers and contractors.
         </Text>
         <AppButton
+          label="Build Your Dream Home"
+          onPress={() =>
+            navigation
+              .getParent<any>()
+              ?.navigate(ROUTES.tabs.homeStack, {
+                screen: ROUTES.home.constructionRequirement,
+                params: {},
+              })
+          }
+        />
+        <AppButton
           label="Start Estimate"
-          onPress={() => navigation.navigate(ROUTES.services.constructionCostCalculator)}
+          onPress={() =>
+            navigation.navigate(ROUTES.services.constructionCostCalculator)
+          }
           variant="secondary"
         />
       </View>
@@ -81,19 +103,25 @@ export function ConstructionDashboardScreen({navigation}: Props) {
         <ServiceCard
           description="Compare inclusions and per-sq-ft pricing"
           icon="layers-outline"
-          onPress={() => navigation.navigate(ROUTES.services.houseConstructionPackages)}
+          onPress={() =>
+            navigation.navigate(ROUTES.services.houseConstructionPackages)
+          }
           title="Packages"
         />
         <ServiceCard
           description="Calculate a local build estimate"
           icon="calculator-outline"
-          onPress={() => navigation.navigate(ROUTES.services.constructionCostCalculator)}
+          onPress={() =>
+            navigation.navigate(ROUTES.services.constructionCostCalculator)
+          }
           title="Cost Calculator"
         />
         <ServiceCard
           description="Browse recommended brands and specs"
           icon="flask-outline"
-          onPress={() => navigation.navigate(ROUTES.services.materialInformation)}
+          onPress={() =>
+            navigation.navigate(ROUTES.services.materialInformation)
+          }
           title="Materials"
         />
         <ServiceCard
@@ -105,7 +133,9 @@ export function ConstructionDashboardScreen({navigation}: Props) {
         <ServiceCard
           description="Discover contractors by city and experience"
           icon="people-outline"
-          onPress={() => navigation.navigate(ROUTES.services.contractorDirectory)}
+          onPress={() =>
+            navigation.navigate(ROUTES.services.contractorDirectory)
+          }
           title="Contractors"
         />
         <ServiceCard
@@ -140,7 +170,8 @@ export function ConstructionDashboardScreen({navigation}: Props) {
                 {formatCurrency(latestQuote.totalCost)}
               </Text>
               <Text style={styles.cardMeta}>
-                {latestQuote.builtUpAreaSqFt} sq ft x {latestQuote.floors} floors
+                {latestQuote.builtUpAreaSqFt} sq ft x {latestQuote.floors}{' '}
+                floors
               </Text>
             </View>
             <StatusChip label={latestQuote.quality} />
@@ -199,12 +230,6 @@ export function ConstructionDashboardScreen({navigation}: Props) {
                 variant="outlined"
               />
             ) : null}
-            <AppButton
-              label="Delete Request"
-              onPress={() => setDeleteTarget(latestRequest)}
-              style={styles.button}
-              variant="danger"
-            />
           </View>
         </View>
       ) : (
@@ -219,24 +244,6 @@ export function ConstructionDashboardScreen({navigation}: Props) {
         icon="construct-outline"
         onPress={() => navigation.navigate(ROUTES.services.materialInformation)}
         title="Material Planning"
-      />
-      <ConfirmationModal
-        confirmLabel="Delete"
-        message={
-          deleteTarget
-            ? `Delete the local request for ${deleteTarget.customerName}?`
-            : 'Delete this quotation request?'
-        }
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (deleteTarget) {
-            deleteRequest(deleteTarget.id);
-            showToast('Construction request deleted locally.');
-          }
-          setDeleteTarget(null);
-        }}
-        title="Delete Construction Request"
-        visible={Boolean(deleteTarget)}
       />
     </ScreenContainer>
   );

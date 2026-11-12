@@ -1,3 +1,5 @@
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
@@ -22,6 +24,11 @@ import {showToast} from '@/utils/toast';
 type Props = NativeStackScreenProps<ServicesStackParamList, 'SupplierDirectory'>;
 
 export function SupplierDirectoryScreen({navigation}: Props) {
+  const loadRemote = useConstructionStore(state => state.load);
+  const remoteLoading = useConstructionStore(state => state.loading);
+  const remoteError = useConstructionStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
   const suppliers = useConstructionStore(state => state.suppliers);
   const shortlistedSupplierIds = useConstructionStore(
     state => state.shortlistedSupplierIds,
@@ -50,7 +57,7 @@ export function SupplierDirectoryScreen({navigation}: Props) {
   );
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Supplier Directory"
         subtitle="Search, call, WhatsApp and shortlist suppliers"

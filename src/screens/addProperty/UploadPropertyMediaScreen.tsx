@@ -1,17 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-import { BottomSheet, ConfirmationModal } from '@/components';
+import {
+  BottomSheet,
+  ConfirmationModal,
+  KeyboardAwareScrollView,
+} from '@/components';
 import { colors } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { spacing } from '@/constants/spacing';
@@ -96,8 +93,13 @@ export function UploadPropertyMediaScreen({ navigation, route }: Props) {
     );
   };
 
-  const {isSheetVisible, openSheet, closeSheet, takePhoto, chooseFromGallery} =
-    usePropertyImagePicker(mediaCount, handleImagesPicked);
+  const {
+    isSheetVisible,
+    openSheet,
+    closeSheet,
+    takePhoto,
+    chooseFromGallery,
+  } = usePropertyImagePicker(mediaCount, handleImagesPicked);
 
   if (!draft) {
     return null;
@@ -128,7 +130,7 @@ export function UploadPropertyMediaScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -226,7 +228,7 @@ export function UploadPropertyMediaScreen({ navigation, route }: Props) {
         </View>
 
         <PrimaryButton label="Save & Next" onPress={handleNext} />
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <BottomSheet onClose={closeSheet} visible={isSheetVisible}>
         <Text style={styles.sheetTitle}>Add Photo</Text>

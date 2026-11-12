@@ -2,6 +2,7 @@ import React from 'react';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 import {ROUTES} from '@/constants/routes';
+import {ConstructionRequirementStack} from '@/navigation/ConstructionRequirementStack';
 import {
   HomeDashboardScreen,
   NotificationsScreen,
@@ -23,6 +24,10 @@ export function HomeStack() {
       <Stack.Screen component={PropertyDetailScreen} name={ROUTES.home.propertyDetail} />
       <Stack.Screen component={PropertyGalleryScreen} name={ROUTES.home.propertyGallery} />
       <Stack.Screen component={NotificationsScreen} name={ROUTES.home.notifications} />
+      <Stack.Screen
+        component={ConstructionRequirementStack}
+        name={ROUTES.home.constructionRequirement}
+      />
     </Stack.Navigator>
   );
 }

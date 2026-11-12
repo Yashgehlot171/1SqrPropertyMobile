@@ -142,3 +142,11 @@ export async function searchLocations(
     pagination: normalizeMasterPagination(response.pagination, items.length),
   };
 }
+
+/** Resolve typed city names without substituting a hardcoded location. */
+export async function resolveCityId(name: string): Promise<number> {
+  const result = await searchLocations({search: name.trim(), type: 'city', limit: 100});
+  const matches = result.items.filter(item => item.name.toLowerCase() === name.trim().toLowerCase());
+  if (matches.length !== 1) { throw new Error(matches.length ? 'This city name is ambiguous. Select a unique city name.' : 'Enter a city available in the location directory.'); }
+  return matches[0].id;
+}

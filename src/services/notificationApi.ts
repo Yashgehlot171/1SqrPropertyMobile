@@ -1,3 +1,4 @@
+import {getAllPages} from './remoteData';
 import {apiRequest, ApiError} from '@/api';
 import {ApiRouteService} from '@/config/app-reference';
 import {buildQueryString} from '@/services/masterApi';
@@ -58,6 +59,7 @@ interface BackendNotificationListResponse {
 // ---------------------------------------------------------------------------
 
 const CATEGORY_MAP: Record<string, NotificationCategory> = {
+  system: 'System', lead: 'Leads', support: 'Support',
   property: 'Properties',
   legal: 'Legal',
   loan: 'Loans',
@@ -65,7 +67,7 @@ const CATEGORY_MAP: Record<string, NotificationCategory> = {
   marketing: 'Offers',
 };
 
-const DEFAULT_CATEGORY: NotificationCategory = 'Properties';
+const DEFAULT_CATEGORY: NotificationCategory = 'System';
 
 function toCategory(typeName?: string | null): NotificationCategory {
   if (!typeName) {
@@ -105,6 +107,10 @@ export interface NotificationQueryParams {
 export async function getNotifications(
   params?: NotificationQueryParams,
 ): Promise<AppNotification[]> {
+  if (!params?.page) {
+    const filters = {...params, limit: undefined};
+    return (await getAllPages<BackendNotification>(ApiRouteService.notifications.list + buildQueryString(filters))).map(normalizeNotification);
+  }
   const endpoint = `${ApiRouteService.notifications.list}${buildQueryString(params)}`;
 
   const response = await apiRequest<BackendNotificationListResponse>({

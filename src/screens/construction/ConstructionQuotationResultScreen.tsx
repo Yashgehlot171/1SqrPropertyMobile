@@ -1,3 +1,6 @@
+import {useRemoteAction} from '@/hooks/useRemoteFlow';
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -29,6 +32,12 @@ export function ConstructionQuotationResultScreen({
   navigation,
   route,
 }: Props) {
+  const loadRemote = useConstructionStore(state => state.load);
+  const remoteLoading = useConstructionStore(state => state.loading);
+  const remoteError = useConstructionStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
+  const {run, busy} = useRemoteAction();
   const user = useAuthStore(state => state.user);
   const quotes = useConstructionStore(state => state.quotes);
   const packages = useConstructionStore(state => state.packages);
@@ -46,7 +55,7 @@ export function ConstructionQuotationResultScreen({
 
   if (!quote) {
     return (
-      <ScreenContainer>
+      <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
         <AppHeader title="Quotation Result" onBackPress={navigation.goBack} />
         <EmptyState
           description="The selected construction quote is not available locally."
@@ -56,18 +65,18 @@ export function ConstructionQuotationResultScreen({
     );
   }
 
-  const handleRequestQuote = () => {
+  const handleRequestQuote = () => run(async () => {
     if (relatedRequests.length) {
       showToast('A detailed quotation request already exists for this estimate.');
       return;
     }
 
-    const created = addRequest({
-      customerName: user?.name ?? 'UrbanKart User',
-      mobile: user?.mobile ?? '9998887776',
+    const created = await addRequest({
+      customerName: user?.name ?? '',
+      mobile: user?.mobile ?? '',
       location: {
-        city: user?.city ?? 'Lucknow',
-        state: 'Uttar Pradesh',
+        city: user?.city ?? '',
+        state: '',
         area: `${quote.quality} construction`,
       },
       quoteId: quote.id,
@@ -75,10 +84,10 @@ export function ConstructionQuotationResultScreen({
     });
 
     showToast(`Detailed quotation request saved for ${created.location.city}.`);
-  };
+  });
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Quotation Result"
         subtitle="Saved locally from the construction calculator"
@@ -127,7 +136,7 @@ export function ConstructionQuotationResultScreen({
       <View style={styles.card}>
         <SectionHeader title="Quotation Actions" />
         <View style={styles.row}>
-          <AppButton
+          <AppButton disabled={busy}
             label="Share Estimate"
             onPress={() => {
               void shareConstructionQuote(quote);
@@ -135,27 +144,27 @@ export function ConstructionQuotationResultScreen({
             style={styles.button}
             variant="outlined"
           />
-          <AppButton
+          <AppButton disabled={busy}
             label="Request Detailed Quote"
             onPress={handleRequestQuote}
             style={styles.button}
           />
         </View>
         <View style={styles.row}>
-          <AppButton
+          <AppButton disabled={busy}
             label="Materials"
             onPress={() => navigation.navigate(ROUTES.services.materialInformation)}
             style={styles.button}
             variant="outlined"
           />
-          <AppButton
+          <AppButton disabled={busy}
             label="Suppliers"
             onPress={() => navigation.navigate(ROUTES.services.supplierDirectory)}
             style={styles.button}
             variant="outlined"
           />
         </View>
-        <AppButton
+        <AppButton disabled={busy}
           label="Find Contractors"
           onPress={() => navigation.navigate(ROUTES.services.contractorDirectory)}
           variant="outlined"
@@ -179,7 +188,7 @@ export function ConstructionQuotationResultScreen({
           </Text>
         )}
       </View>
-      <AppButton
+      <AppButton disabled={busy}
         label="Delete Quote"
         onPress={() => setShowDeleteConfirm(true)}
         variant="danger"

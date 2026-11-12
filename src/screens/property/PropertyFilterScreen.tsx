@@ -21,6 +21,7 @@ import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { usePropertyStore } from '@/store/propertyStore';
+import { KeyboardAwareScrollView } from '@/components';
 import type {
   HomeStackParamList,
   PropertyFilterState,
@@ -89,7 +90,7 @@ export function PropertyFilterScreen({ navigation }: Props) {
         </Pressable>
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -268,7 +269,7 @@ export function PropertyFilterScreen({ navigation }: Props) {
             onPress={() => setToggle('ownerOnly')}
           />
         </FilterSection>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <View style={styles.footer}>
         <Pressable

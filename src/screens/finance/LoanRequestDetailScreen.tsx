@@ -1,5 +1,8 @@
+import {pickRequestAttachment} from '@/services/requestAttachment';
+import {useRemoteLoad, useRemoteAction} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
 import {
@@ -15,14 +18,12 @@ import {
   StatusChip,
   UploadBox,
 } from '@/components';
-import {LOAN_STATUSES} from '@/constants/appConstants';
 import {colors} from '@/constants/colors';
 import {ROUTES} from '@/constants/routes';
 import {spacing} from '@/constants/spacing';
 import {typography} from '@/constants/typography';
 import {useLoanStore} from '@/store/loanStore';
 import type {
-  LoanStatus,
   Remark,
   ServicesStackParamList,
 } from '@/types';
@@ -36,9 +37,14 @@ import {showToast} from '@/utils/toast';
 type Props = NativeStackScreenProps<ServicesStackParamList, 'LoanRequestDetail'>;
 
 export function LoanRequestDetailScreen({navigation, route}: Props) {
+  const loadRemote = useLoanStore(state => state.load);
+  const remoteLoading = useLoanStore(state => state.loading);
+  const remoteError = useLoanStore(state => state.error);
+  useRemoteLoad(loadRemote);
+  const {run, busy} = useRemoteAction();
+
   const requests = useLoanStore(state => state.requests);
   const banks = useLoanStore(state => state.banks);
-  const updateRequestStatus = useLoanStore(state => state.updateRequestStatus);
   const addRemark = useLoanStore(state => state.addRemark);
   const editRemark = useLoanStore(state => state.editRemark);
   const deleteRemark = useLoanStore(state => state.deleteRemark);
@@ -63,17 +69,17 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
 
   if (!request) {
     return (
-      <ScreenContainer>
+      <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
         <AppHeader title="Loan Request Detail" onBackPress={navigation.goBack} />
         <EmptyState
-          description="This loan request is not available in the local workflow."
+          description="This loan request is not available in the account."
           title="Loan request not found"
         />
       </ScreenContainer>
     );
   }
 
-  const handleSaveRemark = () => {
+  const handleSaveRemark = () => { return run(async () => {
     const trimmed = remarkText.trim();
     if (!trimmed) {
       showToast('Remark text is required.');
@@ -81,19 +87,20 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
     }
 
     if (editingRemark) {
-      editRemark(request.id, editingRemark.id, trimmed);
+      await editRemark(request.id, editingRemark.id, trimmed);
       setEditingRemark(null);
-      showToast('Remark updated locally.');
+      showToast('Remark updated.');
     } else {
-      addRemark(request.id, trimmed);
-      showToast('Remark added locally.');
+      await addRemark(request.id, trimmed);
+      showToast('Remark added.');
     }
 
     setRemarkText('');
-  };
+  
+  }); };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Loan Request Detail"
         subtitle={request.applicantName}
@@ -105,7 +112,7 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
           {bank?.name ?? 'No preferred bank'} | {request.mobile}
         </Text>
         <Text style={styles.heroValue}>
-          {formatCurrency(request.loanAmount)}
+          {formatCurrency(request.loanAmount - request.downPayment)}
         </Text>
         <View style={styles.chips}>
           <StatusChip label={request.status} />
@@ -114,7 +121,7 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
         </View>
       </View>
       <View style={styles.actions}>
-        <AppButton
+        <AppButton disabled={busy}
           label="Edit Request"
           onPress={() =>
             navigation.navigate(ROUTES.services.loanApplication, {
@@ -124,7 +131,7 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
           style={styles.button}
           variant="outlined"
         />
-        <AppButton
+        <AppButton disabled={busy}
           label="Delete Request"
           onPress={() => setShowDeleteRequest(true)}
           style={styles.button}
@@ -133,7 +140,7 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
       </View>
       {bank ? (
         <View style={styles.actions}>
-          <AppButton
+          <AppButton disabled={busy}
             label="Call Team"
             onPress={() => {
               void callFinanceTeam(bank);
@@ -141,7 +148,7 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
             style={styles.button}
             variant="outlined"
           />
-          <AppButton
+          <AppButton disabled={busy}
             label="WhatsApp Team"
             onPress={() => {
               void openWhatsAppForFinanceTeam(bank, 'the current loan request');
@@ -172,55 +179,27 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
         <DetailRow label="Interest Rate" value={`${request.interestRate}%`} />
         <DetailRow label="Tenure" value={`${request.tenureYears} years`} />
       </View>
-      <View style={styles.card}>
-        <SectionHeader title="Status Update" />
-        <View style={styles.statusRow}>
-          {LOAN_STATUSES.map(status => (
-            <Pressable
-              key={status}
-              onPress={() => {
-                updateRequestStatus(request.id, status as LoanStatus);
-                showToast(`Loan request updated to ${status}.`);
-              }}
-              style={[
-                styles.statusChip,
-                request.status === status && styles.statusChipSelected,
-              ]}>
-              <Text
-                style={[
-                  styles.statusChipText,
-                  request.status === status && styles.statusChipTextSelected,
-                ]}>
-                {status}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
+
       <View style={styles.card}>
         <SectionHeader title="Documents" />
         <UploadBox
-          onPress={() => {
-            const nextIndex = request.documents.length + 1;
-            addDocument(request.id, {
-              name: `Loan Document ${nextIndex}`,
-              type: 'PDF',
-              uri: `local://loan-request-document-${nextIndex}`,
-            });
-            showToast('Document placeholder added locally.');
-          }}
-          subtitle="Add income proof or KYC placeholders to this local request."
-          title="Upload Document Placeholder"
+          onPress={() => run(async () => {
+    const document = await pickRequestAttachment('loan');
+    if (document) { await addDocument(request.id, document); }
+  })}
+          subtitle="Add income proof or KYC placeholders to this request."
+          title="Upload Image"
         />
         {request.documents.length ? (
           request.documents.map(document => (
             <DocumentCard
               document={document}
               key={document.id}
-              onDelete={() => {
-                removeDocument(request.id, document.id);
-                showToast('Document deleted locally.');
-              }}
+              onDelete={() => { return run(async () => {
+                await removeDocument(request.id, document.id);
+                showToast('Document deleted.');
+              
+  }); }}
               onView={() => showToast(`Viewing ${document.name}.`)}
             />
           ))
@@ -240,7 +219,7 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
         />
         <View style={styles.actions}>
           {editingRemark ? (
-            <AppButton
+            <AppButton disabled={busy}
               label="Cancel Edit"
               onPress={() => {
                 setEditingRemark(null);
@@ -250,7 +229,7 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
               variant="outlined"
             />
           ) : null}
-          <AppButton
+          <AppButton disabled={busy}
             label={editingRemark ? 'Update Remark' : 'Add Remark'}
             onPress={handleSaveRemark}
             style={styles.button}
@@ -261,11 +240,8 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
           request.remarks.map(remark => (
             <RemarkCard
               key={remark.id}
-              onDelete={() => setDeleteTarget(remark)}
-              onEdit={() => {
-                setEditingRemark(remark);
-                setRemarkText(remark.text);
-              }}
+              
+              
               remark={remark}
             />
           ))
@@ -296,26 +272,28 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
             : 'Delete this remark?'
         }
         onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
+        onConfirm={() => { return run(async () => {
           if (deleteTarget) {
-            deleteRemark(request.id, deleteTarget.id);
-            showToast('Remark deleted locally.');
+            await deleteRemark(request.id, deleteTarget.id);
+            showToast('Remark deleted.');
           }
           setDeleteTarget(null);
-        }}
+        
+  }); }}
         title="Delete Remark"
         visible={Boolean(deleteTarget)}
       />
       <ConfirmationModal
         confirmLabel="Delete"
-        message="Delete this local loan request?"
+        message="Delete this loan request?"
         onCancel={() => setShowDeleteRequest(false)}
-        onConfirm={() => {
-          deleteRequest(request.id);
+        onConfirm={() => { return run(async () => {
+          await deleteRequest(request.id);
           setShowDeleteRequest(false);
-          showToast('Loan request deleted locally.');
+          showToast('Loan request deleted.');
           navigation.goBack();
-        }}
+        
+  }); }}
         title="Delete Loan Request"
         visible={showDeleteRequest}
       />

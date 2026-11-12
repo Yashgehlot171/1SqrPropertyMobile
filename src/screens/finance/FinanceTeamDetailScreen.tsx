@@ -1,3 +1,5 @@
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -25,15 +27,20 @@ import {formatCurrency} from '@/utils/formatCurrency';
 type Props = NativeStackScreenProps<ServicesStackParamList, 'FinanceTeamDetail'>;
 
 export function FinanceTeamDetailScreen({navigation, route}: Props) {
+  const loadRemote = useLoanStore(state => state.load);
+  const remoteLoading = useLoanStore(state => state.loading);
+  const remoteError = useLoanStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
   const banks = useLoanStore(state => state.banks);
   const bank = banks.find(item => item.id === route.params.bankId);
 
   if (!bank) {
     return (
-      <ScreenContainer>
+      <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
         <AppHeader title="Finance Team" onBackPress={navigation.goBack} />
         <EmptyState
-          description="The selected lender team is not available locally."
+          description="The selected lender team is not available."
           title="Finance team not found"
         />
       </ScreenContainer>
@@ -41,7 +48,7 @@ export function FinanceTeamDetailScreen({navigation, route}: Props) {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title={`${bank.name} Team`}
         subtitle={bank.city}

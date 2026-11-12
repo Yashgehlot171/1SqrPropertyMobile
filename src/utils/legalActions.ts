@@ -15,6 +15,7 @@ export async function openWhatsAppForLegalTeam(
   team: LegalTeam,
   context: string,
 ): Promise<void> {
+  if (!team.whatsapp) { showToast('WhatsApp contact is not available.'); return; }
   const message = encodeURIComponent(
     `Hi ${team.name}, I need help with ${context} from UrbanKart legal services.`,
   );

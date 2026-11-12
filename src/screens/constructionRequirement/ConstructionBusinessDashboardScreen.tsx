@@ -1,0 +1,42 @@
+import React, {useCallback, useState} from 'react';
+import {ActivityIndicator, Pressable, StyleSheet, Text, View} from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
+import type {NativeStackScreenProps} from '@react-navigation/native-stack';
+import Icon from 'react-native-vector-icons/Ionicons';
+
+import {ROUTES} from '@/constants/routes';
+import {getBuilderDashboard, type BuilderDashboardSummary} from '@/services/constructionJourneyApi';
+import type {ConstructionRequirementStackParamList} from '@/types';
+import {FlowPage, flow} from './FlowUI';
+
+type Props = NativeStackScreenProps<ConstructionRequirementStackParamList, 'ConstructionBusinessDashboard'>;
+
+const futureCards = [
+  {icon: 'layers-outline', title: 'Construction Plans', detail: 'Plan management will be available in the next step.'},
+  {icon: 'document-text-outline', title: 'Quotations', detail: 'Quotation workflow is coming in a future phase.'},
+  {icon: 'construct-outline', title: 'Active Projects', detail: 'Project delivery tools will appear here later.'},
+];
+
+export function ConstructionBusinessDashboardScreen({navigation}: Props) {
+  const [summary, setSummary] = useState<BuilderDashboardSummary>();
+  const [error, setError] = useState('');
+  const load = useCallback(async () => {
+    setError('');
+    try { setSummary(await getBuilderDashboard()); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load Construction Business.'); }
+  }, []);
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
+
+  return <FlowPage title="Construction Business" onBack={navigation.goBack}>
+    <View style={styles.hero}><View style={styles.heroIcon}><Icon name="business-outline" size={25} color={flow.surface} /></View><View style={styles.heroCopy}><Text style={styles.heroTitle}>Builder Dashboard</Text><Text style={styles.heroText}>Review customer requirements and manage your responses.</Text></View></View>
+    {!summary && !error ? <View style={styles.loading}><ActivityIndicator color={flow.blue} /></View> : null}
+    {error ? <View style={styles.errorBox}><Text style={styles.error}>{error}</Text><Pressable onPress={load}><Text style={styles.retry}>Try again</Text></Pressable></View> : null}
+    {summary ? <View style={styles.metrics}><Metric icon="mail-unread-outline" label="New RFQs" value={summary.newRfqs} /><Metric icon="time-outline" label="Pending Actions" value={summary.pendingActions} /><Metric icon="calendar-outline" label="Site Visits" value={summary.siteVisitRequests} /><Metric icon="documents-outline" label="All RFQs" value={summary.totalRfqs} /></View> : null}
+    <Pressable accessibilityRole="button" onPress={() => navigation.navigate(ROUTES.constructionRequirement.builderInvitations)} style={styles.primaryCard}><View style={styles.cardIcon}><Icon name="file-tray-full-outline" size={23} color={flow.blue} /></View><View style={styles.cardCopy}><Text style={styles.cardTitle}>RFQs / Requests</Text><Text style={styles.cardText}>Open incoming construction requirements and respond.</Text></View><Icon name="chevron-forward" size={20} color={flow.muted} /></Pressable>
+    <View style={styles.section}><Text style={styles.sectionTitle}>Business tools</Text>{futureCards.map(card => <View key={card.title} style={styles.futureCard}><View style={styles.futureIcon}><Icon name={card.icon} size={20} color={flow.muted} /></View><View style={styles.cardCopy}><Text style={styles.futureTitle}>{card.title}</Text><Text style={styles.cardText}>{card.detail}</Text></View><Text style={styles.soon}>COMING SOON</Text></View>)}</View>
+  </FlowPage>;
+}
+
+function Metric({icon, label, value}: {icon: string; label: string; value: number}) {return <View style={styles.metric}><Icon name={icon} size={18} color={flow.blue} /><Text style={styles.metricValue}>{value}</Text><Text style={styles.metricLabel}>{label}</Text></View>}
+
+const styles = StyleSheet.create({hero: {flexDirection: 'row', alignItems: 'center', gap: 13, padding: 16, borderRadius: 12, backgroundColor: flow.blue}, heroIcon: {width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.17)'}, heroCopy: {flex: 1, gap: 4}, heroTitle: {fontSize: 18, fontWeight: '800', color: flow.surface}, heroText: {fontSize: 12, lineHeight: 17, color: '#EAF3FF'}, loading: {height: 110, alignItems: 'center', justifyContent: 'center'}, errorBox: {padding: 14, gap: 8, borderRadius: 9, backgroundColor: '#FDEAEA'}, error: {fontSize: 12, color: flow.red}, retry: {fontSize: 12, fontWeight: '800', color: flow.blue}, metrics: {flexDirection: 'row', flexWrap: 'wrap', gap: 10}, metric: {width: '48%', minHeight: 104, padding: 13, gap: 5, borderWidth: 1, borderColor: flow.line, borderRadius: 10, backgroundColor: flow.surface}, metricValue: {fontSize: 23, fontWeight: '800', color: flow.ink}, metricLabel: {fontSize: 11, color: flow.muted}, primaryCard: {minHeight: 90, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1, borderColor: '#C7DBF5', borderRadius: 11, backgroundColor: flow.blueSoft}, cardIcon: {width: 43, height: 43, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: flow.surface}, cardCopy: {flex: 1, gap: 4}, cardTitle: {fontSize: 15, fontWeight: '800', color: flow.ink}, cardText: {fontSize: 11, lineHeight: 16, color: flow.muted}, section: {gap: 10}, sectionTitle: {fontSize: 15, fontWeight: '800', color: flow.ink}, futureCard: {minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: 11, padding: 13, borderWidth: 1, borderColor: flow.line, borderRadius: 10, backgroundColor: '#F4F6F9'}, futureIcon: {width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 9, backgroundColor: flow.surface}, futureTitle: {fontSize: 13, fontWeight: '700', color: flow.ink}, soon: {fontSize: 8, fontWeight: '800', color: flow.muted}});

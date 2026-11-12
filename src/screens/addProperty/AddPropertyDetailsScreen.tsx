@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -10,6 +10,7 @@ import { spacing } from '@/constants/spacing';
 import { useMasterOptions } from '@/hooks/useMasterOptions';
 import { usePropertyStore } from '@/store/propertyStore';
 import type { AddPropertyStackParamList, PropertyReadyState } from '@/types';
+import { KeyboardAwareScrollView } from '@/components';
 
 import {
   AddPropertyHeader,
@@ -92,7 +93,7 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -145,7 +146,11 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
           />
         </View>
 
-        <SelectField label="Facing" value={draft.facing || ''} placeholder="Select facing" />
+        <SelectField
+          label="Facing"
+          value={draft.facing || ''}
+          placeholder="Select facing"
+        />
         {facingOptions.isLoading || facingOptions.error ? (
           <InlineAsyncState
             error={facingOptions.error}
@@ -290,7 +295,9 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
                 return (
                   <View key={amenity.id} style={styles.amenityItem}>
                     <Icon
-                      color={selected ? colors.brandPurple : colors.textSecondary}
+                      color={
+                        selected ? colors.brandPurple : colors.textSecondary
+                      }
                       name={selected ? 'checkmark-circle' : 'ellipse-outline'}
                       size={16}
                     />
@@ -330,7 +337,7 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
             })
           }
         />
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

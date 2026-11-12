@@ -1,3 +1,5 @@
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -16,7 +18,8 @@ import {spacing} from '@/constants/spacing';
 import {typography} from '@/constants/typography';
 import {useConstructionStore} from '@/store/constructionStore';
 import type {ConstructionQuality, ServicesStackParamList} from '@/types';
-import {calculateConstructionQuote} from '@/utils/constructionCalculator';
+import {calculateConstructionEstimate} from '@/services/constructionApi';
+import {useRemoteAction} from '@/hooks/useRemoteFlow';
 import {showToast} from '@/utils/toast';
 
 type Props = NativeStackScreenProps<
@@ -25,6 +28,12 @@ type Props = NativeStackScreenProps<
 >;
 
 export function ConstructionCostCalculatorScreen({navigation, route}: Props) {
+  const loadRemote = useConstructionStore(state => state.load);
+  const remoteLoading = useConstructionStore(state => state.loading);
+  const remoteError = useConstructionStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
+  const {run, busy} = useRemoteAction();
   const packages = useConstructionStore(state => state.packages);
   const saveQuote = useConstructionStore(state => state.saveQuote);
   const selectedPackage = useMemo(
@@ -37,15 +46,15 @@ export function ConstructionCostCalculatorScreen({navigation, route}: Props) {
   const [builtUpAreaSqFt, setBuiltUpAreaSqFt] = useState('1200');
   const [floors, setFloors] = useState('2');
   const [quality, setQuality] = useState<ConstructionQuality>(
-    selectedPackage?.name ?? 'Standard',
+    selectedPackage?.quality ?? 'Standard',
   );
 
   const packageForQuality = useMemo(
-    () => packages.find(item => item.name === quality),
+    () => packages.find(item => (item.quality ?? item.name) === quality),
     [packages, quality],
   );
 
-  const handleCalculate = () => {
+  const handleCalculate = () => run(async () => {
     const plot = Number(plotSizeSqFt);
     const area = Number(builtUpAreaSqFt);
     const floorCount = Number(floors);
@@ -58,25 +67,24 @@ export function ConstructionCostCalculatorScreen({navigation, route}: Props) {
     }
 
     const quote = saveQuote(
-      calculateConstructionQuote({
+      await calculateConstructionEstimate({
         plotSizeSqFt: plot,
         builtUpAreaSqFt: area,
         floors: floorCount,
         quality,
-        costPerSqFt: packageForQuality?.costPerSqFt,
       }),
     );
 
     navigation.navigate(ROUTES.services.quotationResult, {
       quoteId: quote.id,
     });
-  };
+  });
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Construction Cost Calculator"
-        subtitle="Estimate material, labour, total cost and timeline"
+        subtitle="Indicative standard-rate estimate, excluding GST; final package quote may differ"
         onBackPress={navigation.goBack}
       />
       {selectedPackage ? (
@@ -137,18 +145,18 @@ export function ConstructionCostCalculatorScreen({navigation, route}: Props) {
         Selected rate: {packageForQuality?.costPerSqFt ?? 0} per sq ft
       </Text>
       <View style={styles.actions}>
-        <AppButton
+        <AppButton disabled={busy}
           label="Reset"
           onPress={() => {
             setPlotSizeSqFt('1200');
             setBuiltUpAreaSqFt('1200');
             setFloors('2');
-            setQuality(selectedPackage?.name ?? 'Standard');
+            setQuality(selectedPackage?.quality ?? 'Standard');
           }}
           style={styles.button}
           variant="outlined"
         />
-        <AppButton
+        <AppButton disabled={busy}
           label="Calculate Quote"
           onPress={handleCalculate}
           style={styles.button}

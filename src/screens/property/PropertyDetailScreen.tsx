@@ -1,3 +1,5 @@
+import {useCallback} from 'react';
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
@@ -23,9 +25,6 @@ import { showApiError } from '@/api';
 import {
   markPropertyInterested,
   recordPropertyView,
-  trackPropertyCall,
-  trackPropertyShare,
-  trackPropertyWhatsapp,
 } from '@/services/propertyApi';
 import { usePropertyStore } from '@/store/propertyStore';
 import { useSavedStore } from '@/store/savedStore';
@@ -63,6 +62,8 @@ function resolveGalleryImageSource(item: PropertyMedia) {
 export function PropertyDetailScreen({ navigation, route }: Props) {
   const stackNavigation = navigation as any;
   const tabNavigation = navigation.getParent<any>();
+  const loadDetail = usePropertyStore(state => state.loadDetail);
+  useRemoteLoad(useCallback(() => loadDetail(route.params.propertyId), [loadDetail, route.params.propertyId]));
   const properties = usePropertyStore(state => state.properties);
   const favouriteIds = useSavedStore(state => state.favouriteIds);
   const pendingIds = useSavedStore(state => state.pendingIds);
@@ -88,15 +89,16 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
 
   const property = properties.find(item => item.id === route.params.propertyId);
 
+  const viewedPropertyId = property?.id;
   useEffect(() => {
-    if (property) {
-      addRecentlyViewed(property.id);
+    if (viewedPropertyId) {
+      addRecentlyViewed(viewedPropertyId);
       // Fire-and-forget: recordPropertyView swallows its own errors internally so a
       // view-tracking failure never disrupts this screen. Not awaited so it never
       // delays rendering.
-      recordPropertyView(property.id);
+      recordPropertyView(viewedPropertyId);
     }
-  }, [addRecentlyViewed, property]);
+  }, [addRecentlyViewed, viewedPropertyId]);
 
   // PropertyDetailScreen's instance is reused (not remounted) when navigating from
   // one property's "Similar Properties" card to another property's detail screen
@@ -130,7 +132,7 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
           <Text style={styles.headerTitle}>Property Details</Text>
         </View>
         <EmptyState
-          description="This property is not available in the local dataset."
+          description="This property is not available in the available listings."
           title="Property not found"
         />
       </SafeAreaView>
@@ -168,14 +170,14 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
     setActiveImageIndex(clampedIndex);
   };
 
-  const saveProperty = () => {
+  const saveProperty = async () => {
     // Fire-and-forget: toggleFavourite (savedStore) applies its own optimistic
     // update to favouriteIds synchronously before making the network call, so
     // isSaved above already reflects the new state as soon as this function
     // returns — the toast below can fire immediately rather than waiting on the
     // network round trip. A failure is rolled back and surfaced by the store
     // itself via showApiError, independent of this toast.
-    toggleFavourite(property.id);
+    if (!await toggleFavourite(property.id)) { return; }
     showToast(
       isSaved
         ? 'Property removed from favourites.'
@@ -189,13 +191,11 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
     // responsiveness is never gated on this network round trip; trackPropertyCall
     // swallows its own errors, matching recordPropertyView's "must never disrupt the
     // screen" reasoning.
-    void trackPropertyCall(property.id);
     await callPropertyOwner(property);
   };
 
   const openChat = async () => {
     markContacted(property.id);
-    void trackPropertyWhatsapp(property.id);
     await openWhatsAppForProperty(property);
   };
 
@@ -206,7 +206,6 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
     // report which app was chosen anyway (see propertyApi.ts's trackPropertyShare),
     // so there is nothing more accurate to wait for. "share" is used as the generic
     // channel value since the actual OS-level app choice isn't reliably knowable.
-    void trackPropertyShare(property.id, 'share');
     void shareProperty(property);
   };
 
@@ -471,7 +470,6 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
                   markContacted(item.id);
                   // Same fire-and-forget tracking as callOwner above, applied to the
                   // similar-properties cards' own Call action.
-                  void trackPropertyCall(item.id);
                   await callPropertyOwner(item);
                 }}
                 onPress={() =>
@@ -480,13 +478,11 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
                   })
                 }
                 onShare={() => {
-                  void trackPropertyShare(item.id, 'share');
                   void shareProperty(item);
                 }}
                 onToggleSave={() => toggleFavourite(item.id)}
                 onWhatsApp={async () => {
                   markContacted(item.id);
-                  void trackPropertyWhatsapp(item.id);
                   await openWhatsAppForProperty(item);
                 }}
                 property={item}

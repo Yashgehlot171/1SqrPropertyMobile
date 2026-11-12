@@ -1,3 +1,4 @@
+import {useAuthStore} from './authStore';
 import {create} from 'zustand';
 
 import {showApiError} from '@/api';
@@ -29,7 +30,7 @@ interface SavedStore {
   // settle to the correct state a moment later) is simpler and sufficient; queuing
   // a second flip would add complexity for a UX difference nobody is likely to
   // notice in a sub-second window.
-  toggleFavourite: (propertyId: string) => Promise<void>;
+  toggleFavourite: (propertyId: string) => Promise<boolean>;
   // Hydrates favouriteIds from GET /me/saved-properties (sub-piece 3a's
   // getSavedProperties()). Intended to run once when a logged-in user enters the
   // Main app — see MainTabNavigator's mount effect.
@@ -43,20 +44,22 @@ interface SavedStore {
   clearRecentlyViewed: () => void;
 }
 
+let sessionEpoch = 0;
 export const useSavedStore = create<SavedStore>((set, get) => ({
   // Starts empty rather than mock-seeded: favouriteIds is now real, backend-derived
   // state populated by hydrateFavourites() once the user is logged in, not a local
   // mock list.
   favouriteIds: [],
   pendingIds: new Set<string>(),
-  interestedIds: ['property-2'],
-  contactedIds: ['property-3'],
-  recentlyViewedIds: ['property-1', 'property-2', 'property-10'],
+  interestedIds: [],
+  contactedIds: [],
+  recentlyViewedIds: [],
   toggleFavourite: async propertyId => {
+    const started = sessionEpoch;
     // Ignore a second call for the same propertyId while one is already in
     // flight, rather than letting it race the first (see interface comment).
     if (get().pendingIds.has(propertyId)) {
-      return;
+      return false;
     }
 
     const wasSaved = get().favouriteIds.includes(propertyId);
@@ -76,7 +79,9 @@ export const useSavedStore = create<SavedStore>((set, get) => ({
       } else {
         await saveProperty(propertyId);
       }
+      return started === sessionEpoch;
     } catch (error) {
+      if (started !== sessionEpoch) { return false; }
       // Roll back to the pre-toggle state and surface the failure.
       set(state => ({
         favouriteIds: wasSaved
@@ -84,19 +89,21 @@ export const useSavedStore = create<SavedStore>((set, get) => ({
           : state.favouriteIds.filter(id => id !== propertyId),
       }));
       showApiError(error);
+      return false;
     } finally {
       // Clear pending regardless of outcome so the id is never stuck.
-      set(state => {
+      if (started === sessionEpoch) { set(state => {
         const nextPending = new Set(state.pendingIds);
         nextPending.delete(propertyId);
         return {pendingIds: nextPending};
-      });
+      }); }
     }
   },
   hydrateFavourites: async () => {
+    const started = sessionEpoch;
     try {
       const properties = await getSavedProperties();
-      set({favouriteIds: properties.map(property => property.id)});
+      if (started === sessionEpoch) { set({favouriteIds: properties.map(property => property.id)}); }
     } catch (error) {
       showApiError(error);
     }
@@ -134,3 +141,10 @@ export const useSavedStore = create<SavedStore>((set, get) => ({
     })),
   clearRecentlyViewed: () => set({recentlyViewedIds: []}),
 }));
+
+useAuthStore.subscribe((state, previous) => {
+  if (state.user?.id !== previous.user?.id || state.isLoggedIn !== previous.isLoggedIn) {
+    sessionEpoch += 1;
+    useSavedStore.setState({favouriteIds: [], interestedIds: [], contactedIds: [], recentlyViewedIds: [], pendingIds: new Set<string>()});
+  }
+});

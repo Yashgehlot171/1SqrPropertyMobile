@@ -1,3 +1,6 @@
+import {pickRequestAttachment} from '@/services/requestAttachment';
+import {useRemoteLoad, useRemoteAction} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {StyleSheet, Text} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -21,8 +24,15 @@ import {showToast} from '@/utils/toast';
 
 type Props = NativeStackScreenProps<ServicesStackParamList, 'SupportTicketForm'>;
 
-export function SupportTicketFormScreen({navigation, route}: Props) {
+function SupportTicketFormContent({navigation, route}: Props) {
+  const loadRemote = useSupportStore(state => state.load);
+  const remoteLoading = useSupportStore(state => state.loading);
+  const remoteError = useSupportStore(state => state.error);
+  useRemoteLoad(loadRemote);
+  const {run, busy} = useRemoteAction();
+
   const ticketId = route.params?.ticketId;
+  const categories = useSupportStore(state => state.categories);
   const tickets = useSupportStore(state => state.tickets);
   const addTicket = useSupportStore(state => state.addTicket);
   const updateTicket = useSupportStore(state => state.updateTicket);
@@ -42,23 +52,12 @@ export function SupportTicketFormScreen({navigation, route}: Props) {
     ticket?.documents ?? [],
   );
 
-  const handleAddDocument = () => {
-    const nextIndex = documents.length + 1;
-    setDocuments(current => [
-      {
-        id: `support-form-document-${nextIndex}`,
-        name: `Support Attachment ${nextIndex}`,
-        type: 'PDF',
-        uri: `local://support-document-${nextIndex}`,
-        uploadedAt: new Date().toISOString(),
-        status: 'uploaded',
-      },
-      ...current,
-    ]);
-    showToast('Document placeholder added locally.');
-  };
+  const handleAddDocument = () => run(async () => {
+    const document = await pickRequestAttachment('support');
+    if (document) { setDocuments(current => [document, ...current]); }
+  });
 
-  const handleSubmit = () => {
+  const handleSubmit = () => { return run(async () => {
     if (!issueType.trim() || !subject.trim() || !description.trim()) {
       showToast('Issue type, subject and description are required.');
       return;
@@ -84,29 +83,31 @@ export function SupportTicketFormScreen({navigation, route}: Props) {
     } as const;
 
     if (ticket) {
-      updateTicket(ticket.id, payload);
-      showToast('Support ticket updated locally.');
+      await updateTicket(ticket.id, payload);
+      showToast('Support ticket updated.');
       navigation.replace(ROUTES.services.supportTicketDetail, {
         ticketId: ticket.id,
       });
       return;
     }
 
-    const created = addTicket(payload);
-    showToast('Support ticket created locally.');
+    const created = await addTicket(payload);
+    showToast('Support ticket created.');
     navigation.replace(ROUTES.services.supportTicketDetail, {
       ticketId: created.id,
     });
-  };
+  
+  }); };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title={ticket ? 'Edit Support Ticket' : 'Create Support Ticket'}
-        subtitle="Static-data support request form with local document UI"
+        subtitle="Submit and track your request"
         onBackPress={navigation.goBack}
       />
       <SectionHeader title="Ticket Information" />
+      {categories.map(category => <Text key={category.id} onPress={() => setIssueType(category.name)}>{category.name}</Text>)}
       <AppInput
         label="Issue Type"
         onChangeText={setIssueType}
@@ -117,7 +118,7 @@ export function SupportTicketFormScreen({navigation, route}: Props) {
       <AppInput
         label="Related Property ID (Optional)"
         onChangeText={setRelatedProperty}
-        placeholder="property-1"
+        placeholder="Numeric property ID"
         value={relatedProperty}
       />
       <AppInput
@@ -138,8 +139,8 @@ export function SupportTicketFormScreen({navigation, route}: Props) {
       <SectionHeader title="Attachments" />
       <UploadBox
         onPress={handleAddDocument}
-        subtitle="Add screenshots or proof placeholders to this local ticket."
-        title="Add Attachment Placeholder"
+        subtitle="Choose a JPG or PNG image to attach."
+        title="Add Image"
       />
       {documents.length ? (
         documents.map(document => (
@@ -150,7 +151,7 @@ export function SupportTicketFormScreen({navigation, route}: Props) {
               setDocuments(current =>
                 current.filter(item => item.id !== document.id),
               );
-              showToast('Document removed locally.');
+              showToast('Document removed.');
             }}
             onView={() => showToast(`Viewing ${document.name}.`)}
           />
@@ -158,7 +159,7 @@ export function SupportTicketFormScreen({navigation, route}: Props) {
       ) : (
         <Text style={styles.emptyCopy}>No attachments added yet.</Text>
       )}
-      <AppButton
+      <AppButton disabled={busy}
         label={ticket ? 'Update Ticket' : 'Submit Ticket'}
         onPress={handleSubmit}
       />
@@ -172,3 +173,18 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
   },
 });
+
+export function SupportTicketFormScreen(props: Props) {
+  const load = useSupportStore(state => state.load);
+  const loading = useSupportStore(state => state.loading);
+  const error = useSupportStore(state => state.error);
+  const items = useSupportStore(state => state.tickets);
+  useRemoteLoad(load);
+  const id = props.route.params?.ticketId;
+  if (id && !items.some(item => item.id === id)) {
+    return <ScreenContainer><AppHeader title="Edit request" onBackPress={props.navigation.goBack} />
+      <RemoteStatus loading={loading} error={error ?? (loading ? null : 'Request unavailable. Retry to refresh.')} retry={() => { void load().catch(() => {}); }} />
+    </ScreenContainer>;
+  }
+  return <SupportTicketFormContent key={id ?? 'new'} {...props} />;
+}

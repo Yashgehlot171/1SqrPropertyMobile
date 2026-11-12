@@ -1,3 +1,4 @@
+import {resolveCityId} from './locationApi';
 import {apiRequest, tokenStorage} from '@/api';
 import {ApiRouteService} from '@/config/app-reference';
 import {getMe, normalizeUser} from '@/services/profileApi';
@@ -17,6 +18,7 @@ const STORAGE_KEY = 'a1land_auth_session';
 
 interface SendOtpResponse {
   mobile?: string;
+  otp?: string;
 }
 
 interface VerifyOtpResponse {
@@ -116,7 +118,7 @@ function normalizeVerifyOtpTokens(response: VerifyOtpResponse) {
   };
 }
 
-export async function sendOtp(payload: LoginPayload): Promise<{mobile: string}> {
+export async function sendOtp(payload: LoginPayload): Promise<{mobile: string; otp?: string}> {
   ensureMobile(payload.mobile);
 
   const response = await apiRequest<SendOtpResponse, LoginPayload>({
@@ -126,7 +128,7 @@ export async function sendOtp(payload: LoginPayload): Promise<{mobile: string}> 
     auth: 'none',
   });
 
-  return {mobile: response.mobile ?? payload.mobile};
+  return {mobile: response.mobile ?? payload.mobile, otp: response.otp};
 }
 
 export async function verifyOtp(
@@ -167,7 +169,7 @@ export async function verifyOtp(
 }
 
 export async function saveRole(role: UserRole): Promise<UserRole> {
-  await apiRequest<{role?: UserRole}, {role: UserRole}>({
+  const response = await apiRequest<{role?: UserRole; tempToken?: string}, {role: UserRole}>({
     endpoint: ApiRouteService.auth.selectRole,
     method: 'POST',
     body: {role},
@@ -175,7 +177,7 @@ export async function saveRole(role: UserRole): Promise<UserRole> {
   });
 
   const session = await getSession();
-  await persistSession({...session, selectedRole: role});
+  await persistSession({...session, selectedRole: role, tempToken: response.tempToken ?? session.tempToken});
   return role;
 }
 
@@ -188,7 +190,7 @@ export async function completeProfile(
   const requestBody: CompleteProfileRequest = {
     name: payload.name,
     email: payload.email,
-    cityId: payload.cityId ?? 12,
+    cityId: payload.cityId ?? await resolveCityId(payload.city),
     avatarFileId: payload.avatarFileId ?? null,
     selectedRole: payload.selectedRole,
     ...(payload.selectedRole === 'broker' && payload.brokerProfile

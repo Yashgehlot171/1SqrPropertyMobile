@@ -28,6 +28,7 @@ import {
   getMyProperties,
   updateProperty,
 } from '@/services/propertyApi';
+import {useAuthStore} from '@/store/authStore';
 import {usePropertyStore} from '@/store/propertyStore';
 import type {
   AddPropertyStackParamList,
@@ -62,6 +63,15 @@ function getPropertyImage(property: Property): ImageSourcePropType {
 
 export function MyPropertiesScreen({navigation}: Props) {
   const initializeDraft = usePropertyStore(state => state.initializeDraft);
+  // PropertyDetailScreen (the real, read-only listing-detail view opened for an
+  // Active/Sold property below) reads its property from this store's `properties`
+  // array rather than fetching it itself — see propertyStore.ts's upsertProperty,
+  // already used the same way by saveDraft/submitDraft. Since this screen's list
+  // comes from getMyProperties() and is never pushed into that store anywhere,
+  // upsertProperty must be called here first or PropertyDetailScreen would render
+  // "Property not found" for any property not already present in the store.
+  const upsertProperty = usePropertyStore(state => state.upsertProperty);
+  const currentUserId = useAuthStore(state => state.user?.id);
   const [activeStatus, setActiveStatus] =
     useState<PropertyLifecycleStatus>('Active');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(
@@ -219,12 +229,25 @@ export function MyPropertiesScreen({navigation}: Props) {
             onStatusChange={status => {
               handleStatusChange(property, status);
             }}
-            onView={() =>
+            onView={() => {
+              // Active (approved/live) and Sold (was live, still real) properties get
+              // the real, read-only listing-detail screen — the same one a buyer sees.
+              // Draft/Pending/Rejected properties aren't published (or were bounced
+              // back for edits), so they stay on the wizard's "Review & Publish" step,
+              // which is the right place to keep working on/resubmit them.
+              if (property.status === 'Active' || property.status === 'Sold') {
+                upsertProperty(property);
+                navigation.navigate(ROUTES.home.propertyDetail, {
+                  propertyId: property.id,
+                });
+                return;
+              }
               navigation.navigate(ROUTES.addProperty.propertyPreview, {
                 propertyId: property.id,
-              })
-            }
+              });
+            }}
             property={property}
+            currentUserId={currentUserId}
           />
         ))
       ) : (
@@ -270,6 +293,7 @@ function MyPropertyCard({
   onMore,
   onDelete,
   onStatusChange,
+  currentUserId,
 }: {
   property: Property;
   imageSource: ImageSourcePropType;
@@ -280,7 +304,26 @@ function MyPropertyCard({
   onMore: () => void;
   onDelete: () => void;
   onStatusChange: (status: PropertyLifecycleStatus) => void;
+  currentUserId: string | undefined;
 }) {
+  const isActive = property.status === 'Active';
+  // GET /me/properties (property.service.ts's myProperties()) filters strictly by
+  // `ownerId: BigInt(req.user!.id)` with no assignedAgentId/broker inclusion, so this
+  // list can never actually contain a property this user doesn't own today — this
+  // check is defensive (in case that ever changes, e.g. a future assigned-agent view
+  // reusing this same list/card), not a fix for a currently reachable bug.
+  const isOwner = Boolean(currentUserId) && property.owner.id === currentUserId;
+  // Owner-self-service status transitions are gated server-side by two independent
+  // rules (propertyStatus.service.ts): `ownerStatuses` (draft/pending/inactive/sold/
+  // rented — active/rejected/etc. are admin-only) AND a workflow adjacency map, where
+  // ACTIVE may only move to SOLD/RENTED/INACTIVE/BLOCKED/ARCHIVED. Of this mock
+  // model's 5 statuses, only 'Sold' maps to a valid ACTIVE-workflow target; Draft,
+  // Pending and Rejected would all be rejected by the backend with a 400. Rather than
+  // exposing a chip row where 3 of 4 alternatives always error, the whole manual
+  // status-changer is hidden for Active properties (err toward hiding more, per the
+  // task's guidance) — Sold is reachable instead via the normal buyer-side "mark as
+  // sold" flow once that exists, not this ad-hoc chip list.
+  const showStatusChanger = !isActive;
   return (
     <View style={styles.propertyCard}>
       <Pressable onPress={onView} style={styles.propertyMain}>
@@ -320,7 +363,11 @@ function MyPropertyCard({
           formula, not real data — the /me/properties list endpoint doesn't
           return per-property stats yet. Don't re-add a similar formula. */}
       <View style={styles.cardActions}>
-        <Action icon="create-outline" label="Edit" onPress={onEdit} />
+        {/* An approved/live property is edited through its normal update flow
+            elsewhere, not this wizard's draft-editing entry point — see Bug 2. */}
+        {isActive ? null : (
+          <Action icon="create-outline" label="Edit" onPress={onEdit} />
+        )}
         <Action icon="megaphone-outline" label="Promote" onPress={onPromote} />
         <Action icon="ellipsis-vertical" label="More" onPress={onMore} />
       </View>
@@ -329,28 +376,35 @@ function MyPropertyCard({
         <View style={styles.managePanel}>
           <View style={styles.manageActions}>
             <Action icon="eye-outline" label="View" onPress={onView} />
-            <Action icon="trash-outline" label="Delete" onPress={onDelete} />
+            {isOwner ? (
+              <Action icon="trash-outline" label="Delete" onPress={onDelete} />
+            ) : null}
           </View>
-          <Text style={styles.manageLabel}>Change Status</Text>
-          <View style={styles.statusRow}>
-            {PROPERTY_STATUSES.map(status => (
-              <Pressable
-                key={status}
-                onPress={() => onStatusChange(status)}
-                style={[
-                  styles.statusChip,
-                  property.status === status && styles.statusChipSelected,
-                ]}>
-                <Text
-                  style={[
-                    styles.statusChipText,
-                    property.status === status && styles.statusChipTextSelected,
-                  ]}>
-                  {status}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          {showStatusChanger ? (
+            <>
+              <Text style={styles.manageLabel}>Change Status</Text>
+              <View style={styles.statusRow}>
+                {PROPERTY_STATUSES.map(status => (
+                  <Pressable
+                    key={status}
+                    onPress={() => onStatusChange(status)}
+                    style={[
+                      styles.statusChip,
+                      property.status === status && styles.statusChipSelected,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.statusChipText,
+                        property.status === status &&
+                          styles.statusChipTextSelected,
+                      ]}>
+                      {status}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : null}
         </View>
       ) : null}
     </View>

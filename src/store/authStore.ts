@@ -14,6 +14,7 @@ import {
   updateMe,
 } from '@/services/profileApi';
 import {normalizeApiError} from '@/api';
+import {isBroker} from '@/utils/authCapabilities';
 import type {
   AuthSession,
   BrokerProfile,
@@ -75,7 +76,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const user = await getMe();
       let brokerProfile: BrokerProfile | undefined = state.brokerProfile;
 
-      if ((user.role === 'broker' || options?.forceBroker) && user.role === 'broker') {
+      if ((isBroker(user) || options?.forceBroker) && isBroker(user)) {
         set({isBrokerProfileLoading: true});
         brokerProfile = await getBrokerProfile();
       } else {
@@ -172,7 +173,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
   updateBrokerProfile: async updates => {
     const state = get();
-    if (state.user?.role !== 'broker') {
+    if (!isBroker(state.user)) {
       return;
     }
 

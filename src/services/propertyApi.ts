@@ -1,3 +1,4 @@
+import {getAllPages} from './remoteData';
 import {apiRequest, ApiError, uploadFile} from '@/api';
 import type {UploadFileInput} from '@/api';
 import {ApiRouteService} from '@/config/app-reference';
@@ -819,15 +820,9 @@ export async function getProperties(
   filters?: Partial<PropertyFilterState>,
 ): Promise<Property[]> {
   const query = await buildPropertySearchQuery(filters);
-  const endpoint = `${ApiRouteService.properties.list}${buildQueryString(query)}`;
-
-  const response = await apiRequest<BackendPropertyListResponse>({
-    endpoint,
-    method: 'GET',
-    auth: 'none',
-  });
-
-  const items = (response.items ?? []).map(normalizeProperty);
+  const search = {...query, limit: undefined};
+  const endpoint = ApiRouteService.properties.list + buildQueryString(search);
+  const items = (await getAllPages<BackendProperty>(endpoint, 'none')).map(normalizeProperty);
 
   // ownerOnly has no backend query-param equivalent (ownerId/brokerId filter to a
   // specific user, not "posted by an owner rather than a broker" in general), so it's
@@ -1113,6 +1108,7 @@ async function fetchNormalizedPropertyList(
   endpointTemplate: string,
   params?: {page?: number; limit?: number},
 ): Promise<Property[]> {
+  if (!params?.page) { return (await getAllPages<BackendProperty>(endpointTemplate)).map(normalizeProperty); }
   const endpoint = `${endpointTemplate}${buildQueryString(params)}`;
 
   const response = await apiRequest<BackendPropertyListResponse>({

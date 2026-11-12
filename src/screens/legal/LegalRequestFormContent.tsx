@@ -1,3 +1,6 @@
+import {pickRequestAttachment} from '@/services/requestAttachment';
+import {useRemoteLoad, useRemoteAction} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useState} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -36,6 +39,12 @@ export function LegalRequestFormContent({
   request,
   type,
 }: LegalRequestFormContentProps) {
+  const loadRemote = useLegalStore(state => state.load);
+  const remoteLoading = useLegalStore(state => state.loading);
+  const remoteError = useLegalStore(state => state.error);
+  useRemoteLoad(loadRemote);
+  const {run, busy} = useRemoteAction();
+
   const user = useAuthStore(state => state.user);
   const teams = useLegalStore(state => state.teams);
   const addRequest = useLegalStore(state => state.addRequest);
@@ -63,23 +72,12 @@ export function LegalRequestFormContent({
     request?.documents ?? [],
   );
 
-  const handleAddDocument = () => {
-    const nextIndex = documents.length + 1;
-    setDocuments(current => [
-      {
-        id: `legal-form-document-${nextIndex}`,
-        name: `${type} Document ${nextIndex}`,
-        type: 'PDF',
-        uri: `local://legal-document-${nextIndex}`,
-        uploadedAt: new Date().toISOString(),
-        status: 'uploaded',
-      },
-      ...current,
-    ]);
-    showToast('Document placeholder added locally.');
-  };
+  const handleAddDocument = () => run(async () => {
+    const document = await pickRequestAttachment('legal');
+    if (document) { setDocuments(current => [document, ...current]); }
+  });
 
-  const handleSubmit = () => {
+  const handleSubmit = () => { return run(async () => {
     if (
       !assignedTeamId ||
       !applicantName.trim() ||
@@ -127,33 +125,34 @@ export function LegalRequestFormContent({
     } as const;
 
     if (request) {
-      updateRequest(request.id, payload);
-      showToast('Legal request updated locally.');
+      await updateRequest(request.id, payload);
+      showToast('Legal request updated.');
       navigation.replace(ROUTES.services.legalRequestDetail, {
         requestId: request.id,
       });
       return;
     }
 
-    const created = addRequest(payload);
-    showToast('Legal request created locally.');
+    const created = await addRequest(payload);
+    showToast('Legal request created.');
     navigation.replace(ROUTES.services.legalRequestDetail, {
       requestId: created.id,
     });
-  };
+  
+  }); };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title={request ? `Edit ${type}` : type}
-        subtitle="Static-data legal request form with local document UI"
+        subtitle="Submit and track your request"
         onBackPress={navigation.goBack}
       />
       <View style={styles.banner}>
         <Text style={styles.bannerLabel}>Request Type</Text>
         <Text style={styles.bannerTitle}>{type}</Text>
         <Text style={styles.bannerCopy}>
-          Select a team, add request details, and submit this legal workflow locally.
+          Select a team, add request details, and submit this legal workflow.
         </Text>
       </View>
       <SectionHeader title="Assigned Legal Team" />
@@ -220,7 +219,7 @@ export function LegalRequestFormContent({
       <UploadBox
         onPress={handleAddDocument}
         subtitle="Add sale deed, ownership proof or ID placeholders."
-        title="Add Document Placeholder"
+        title="Add Image"
       />
       {documents.length ? (
         documents.map(document => (
@@ -231,7 +230,7 @@ export function LegalRequestFormContent({
               setDocuments(current =>
                 current.filter(item => item.id !== document.id),
               );
-              showToast('Document removed locally.');
+              showToast('Document removed.');
             }}
             onView={() => showToast(`Viewing ${document.name}.`)}
           />
@@ -240,13 +239,13 @@ export function LegalRequestFormContent({
         <Text style={styles.emptyCopy}>No documents added yet.</Text>
       )}
       <View style={styles.actions}>
-        <AppButton
+        <AppButton disabled={busy}
           label="Legal Tracking"
           onPress={() => navigation.navigate(ROUTES.services.legalRequestTracking)}
           style={styles.button}
           variant="outlined"
         />
-        <AppButton
+        <AppButton disabled={busy}
           label={request ? 'Update Request' : 'Submit Request'}
           onPress={handleSubmit}
           style={styles.button}

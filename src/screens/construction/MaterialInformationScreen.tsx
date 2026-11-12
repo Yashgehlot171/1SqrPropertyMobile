@@ -1,3 +1,5 @@
+import {useRemoteLoad} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -23,6 +25,11 @@ type Props = NativeStackScreenProps<
 >;
 
 export function MaterialInformationScreen({navigation}: Props) {
+  const loadRemote = useConstructionStore(state => state.load);
+  const remoteLoading = useConstructionStore(state => state.loading);
+  const remoteError = useConstructionStore(state => state.error);
+  useRemoteLoad(loadRemote);
+
   const materials = useConstructionStore(state => state.materials);
   const savedMaterialIds = useConstructionStore(state => state.savedMaterialIds);
   const toggleSavedMaterial = useConstructionStore(
@@ -54,7 +61,7 @@ export function MaterialInformationScreen({navigation}: Props) {
   );
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Material Information"
         subtitle="Static brands, specs and pricing ranges"

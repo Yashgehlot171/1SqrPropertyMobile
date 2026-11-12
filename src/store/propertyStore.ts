@@ -1,7 +1,7 @@
 import {create} from 'zustand';
 
-import {primaryProfile} from '@/data/mockUsers';
-import {getPropertyById} from '@/services/propertyApi';
+
+import {getProperties, getPropertyById, getMyProperties} from '@/services/propertyApi';
 import {generateId} from '@/services/serviceUtils';
 import {useAuthStore} from '@/store/authStore';
 import type {
@@ -15,10 +15,11 @@ import type {
   UserSummary,
 } from '@/types';
 
-import {mockProperties} from '@/data/mockProperties';
+
 
 function getCurrentOwner(): UserSummary {
-  const currentUser = useAuthStore.getState().user ?? primaryProfile;
+  const currentUser = useAuthStore.getState().user;
+  if (!currentUser) { throw new Error('Sign in before creating a property.'); }
 
   return {
     id: currentUser.id,
@@ -97,6 +98,12 @@ function finalizeProperty(
 
 interface PropertyStore {
   properties: Property[];
+  ownProperties: Property[];
+  loadMine: () => Promise<void>;
+  loading: boolean;
+  error: string | null;
+  load: () => Promise<void>;
+  loadDetail: (id: string) => Promise<void>;
   filters: Partial<PropertyFilterState>;
   editorDraft: PropertyDraftState | null;
   editorPropertyId?: string;
@@ -123,7 +130,32 @@ interface PropertyStore {
 }
 
 export const usePropertyStore = create<PropertyStore>((set, get) => ({
-  properties: mockProperties,
+  ownProperties: [],
+  loadMine: async () => {
+    const userId = useAuthStore.getState().user?.id;
+    const ownProperties = await getMyProperties();
+    if (userId === useAuthStore.getState().user?.id) { set({ownProperties}); }
+  },
+  properties: [], loading: false, error: null,
+  load: async () => {
+    if (get().loading) { return; }
+    const userId = useAuthStore.getState().user?.id;
+    set({loading: true, error: null});
+    try {
+      const items = await getProperties();
+      if (userId === useAuthStore.getState().user?.id) {
+        set({properties: items, loading: false});
+      }
+    } catch (error) {
+      set({loading: false, error: error instanceof Error ? error.message : 'Unable to load properties.'});
+      throw error;
+    }
+  },
+  loadDetail: async id => {
+    const item = await getPropertyById(id);
+    if (item) { get().upsertProperty(item); }
+    else { get().removeProperty(id); }
+  },
   filters: {},
   editorDraft: null,
   editorPropertyId: undefined,
@@ -337,3 +369,9 @@ export const usePropertyStore = create<PropertyStore>((set, get) => ({
         : state.editorDraft,
     })),
 }));
+
+useAuthStore.subscribe((state, previous) => {
+  if (state.user?.id !== previous.user?.id || state.isLoggedIn !== previous.isLoggedIn) {
+    usePropertyStore.setState({properties: [], ownProperties: [], filters: {}, editorDraft: null, editorPropertyId: undefined, loading: false, error: null});
+  }
+});

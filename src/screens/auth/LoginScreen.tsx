@@ -4,7 +4,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -20,6 +19,7 @@ import { sendOtp } from '@/services/authApi';
 import { useAuthStore } from '@/store/authStore';
 import type { AuthStackParamList } from '@/types';
 import { Colors } from '@/Themes';
+import { KeyboardAwareScrollView } from '@/components';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
@@ -44,6 +44,7 @@ export function LoginScreen({ navigation }: Props) {
       setPendingMobile(response.mobile);
       navigation.navigate(ROUTES.auth.otpVerification, {
         mobile: response.mobile,
+        testingOtp: response.otp,
       });
     } catch (error) {
       setErrorMessage(
@@ -60,7 +61,7 @@ export function LoginScreen({ navigation }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardView}
       >
-        <ScrollView
+        <KeyboardAwareScrollView
           bounces={false}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
@@ -95,7 +96,11 @@ export function LoginScreen({ navigation }: Props) {
               ]}
             >
               <View style={styles.phoneIcon}>
-                <Icon color={Colors.brandPurple} name="call-outline" size={15} />
+                <Icon
+                  color={Colors.brandPurple}
+                  name="call-outline"
+                  size={15}
+                />
               </View>
               <Text style={styles.countryCode}>+91</Text>
               <View style={styles.divider} />
@@ -153,7 +158,7 @@ export function LoginScreen({ navigation }: Props) {
           <Text style={styles.termsText}>
             By continuing you agree to our Terms of Services & Privacy Policy
           </Text>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -180,7 +185,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   welcomeText: {
-       color: Colors.text.primary,
+    color: Colors.text.primary,
     fontSize: 24,
     fontWeight: '700',
     lineHeight: 35,
@@ -198,7 +203,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginTop: 4,
-    textAlign: 'left',marginLeft:4
+    textAlign: 'left',
+    marginLeft: 4,
   },
   heroImage: {
     marginBottom: 24,

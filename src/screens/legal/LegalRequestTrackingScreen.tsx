@@ -1,3 +1,5 @@
+import {useRemoteLoad, useRemoteAction} from '@/hooks/useRemoteFlow';
+import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -28,6 +30,12 @@ type Props = NativeStackScreenProps<
 type RequestFilter = 'All' | LegalStatus;
 
 export function LegalRequestTrackingScreen({navigation}: Props) {
+  const loadRemote = useLegalStore(state => state.load);
+  const remoteLoading = useLegalStore(state => state.loading);
+  const remoteError = useLegalStore(state => state.error);
+  useRemoteLoad(loadRemote);
+  const {run, busy} = useRemoteAction();
+
   const requests = useLegalStore(state => state.requests);
   const teams = useLegalStore(state => state.teams);
   const deleteRequest = useLegalStore(state => state.deleteRequest);
@@ -56,7 +64,7 @@ export function LegalRequestTrackingScreen({navigation}: Props) {
   );
 
   return (
-    <ScreenContainer>
+    <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Legal Request Tracking"
         subtitle="View, edit, delete and monitor local legal requests"
@@ -87,14 +95,14 @@ export function LegalRequestTrackingScreen({navigation}: Props) {
         ))}
       </View>
       <View style={styles.actions}>
-        <AppButton
+        <AppButton disabled={busy}
           label="Verification Request"
           onPress={() =>
             navigation.navigate(ROUTES.services.propertyVerificationRequest)
           }
           style={styles.button}
         />
-        <AppButton
+        <AppButton disabled={busy}
           label="Registration Request"
           onPress={() =>
             navigation.navigate(ROUTES.services.propertyRegistrationRequest)
@@ -139,13 +147,14 @@ export function LegalRequestTrackingScreen({navigation}: Props) {
             : 'Delete this legal request?'
         }
         onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
+        onConfirm={() => { return run(async () => {
           if (deleteTarget) {
-            deleteRequest(deleteTarget.id);
-            showToast('Legal request deleted locally.');
+            await deleteRequest(deleteTarget.id);
+            showToast('Legal request deleted.');
           }
           setDeleteTarget(null);
-        }}
+        
+  }); }}
         title="Delete Legal Request"
         visible={Boolean(deleteTarget)}
       />
