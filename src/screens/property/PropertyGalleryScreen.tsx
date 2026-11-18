@@ -1,15 +1,15 @@
 import React, {useMemo, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Image, Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
 import {AppButton, AppHeader, EmptyState, ScreenContainer} from '@/components';
+import Icon from 'react-native-vector-icons/Ionicons';
 import {colors} from '@/constants/colors';
 import {spacing} from '@/constants/spacing';
 import {typography} from '@/constants/typography';
 import {usePropertyStore} from '@/store/propertyStore';
 import type {HomeStackParamList, SavedStackParamList} from '@/types';
 import {shareProperty} from '@/utils/propertyActions';
-import {showToast} from '@/utils/toast';
 
 type Props =
   | NativeStackScreenProps<HomeStackParamList, 'PropertyGallery'>
@@ -41,7 +41,7 @@ export function PropertyGalleryScreen({navigation, route}: Props) {
       <ScreenContainer>
         <AppHeader title="Gallery" onBackPress={navigation.goBack} />
         <EmptyState
-          description="This property is not available in the local dataset."
+          description="The property details are no longer available. Return to the property list and try another listing."
           title="Property not found"
         />
       </ScreenContainer>
@@ -53,34 +53,37 @@ export function PropertyGalleryScreen({navigation, route}: Props) {
       <AppHeader title="Property Gallery" onBackPress={navigation.goBack} />
       <View style={styles.hero}>
         <Text style={styles.counter}>
-          {currentIndex + 1} / {property.media.length}
+          {property.media.length ? `${currentIndex + 1} / ${property.media.length}` : 'No photos available'}
         </Text>
         <Text style={styles.mediaLabel}>
-          {currentMedia?.type.toUpperCase() ?? 'IMAGE'}
+          {currentMedia?.type.toUpperCase() ?? 'NO MEDIA'}
         </Text>
       </View>
       <View style={styles.previewCard}>
-        <Text style={styles.previewTitle}>{property.title}</Text>
-        <Text style={styles.previewSubtext}>
-          Media ID: {currentMedia?.id ?? 'Unavailable'}
-        </Text>
-        <Text style={styles.previewSubtext}>
-          URI placeholder: {currentMedia?.uri ?? 'Unavailable'}
-        </Text>
+        {currentMedia?.type === 'image' && currentMedia.uri ? (
+          <Image accessibilityLabel={property.title} resizeMode="cover" source={{uri: currentMedia.uri}} style={styles.previewImage} />
+        ) : (
+          <View style={styles.mediaFallback}>
+            <Icon color={colors.brandPurple} name={currentMedia?.type === 'video' ? 'play-circle-outline' : 'image-outline'} size={38} />
+            <Text style={styles.previewSubtext}>{currentMedia?.type === 'video' ? 'Video preview is unavailable.' : 'No preview is available for this media.'}</Text>
+          </View>
+        )}
+        <Text numberOfLines={2} style={styles.previewTitle}>{property.title}</Text>
+        <Text style={styles.previewSubtext}>{currentMedia?.type === 'video' ? 'Video' : 'Property photo'} {currentIndex + 1} of {property.media.length}</Text>
       </View>
       <View style={styles.controls}>
         <AppButton
-          disabled={currentIndex === 0}
+          disabled={!property.media.length || currentIndex === 0}
           label="Previous"
           onPress={() => setCurrentIndex(index => Math.max(index - 1, 0))}
           style={styles.controlButton}
           variant="outlined"
         />
         <AppButton
-          disabled={currentIndex === property.media.length - 1}
+          disabled={!property.media.length || currentIndex >= property.media.length - 1}
           label="Next"
           onPress={() =>
-            setCurrentIndex(index => Math.min(index + 1, property.media.length - 1))
+            setCurrentIndex(index => Math.min(index + 1, Math.max(property.media.length - 1, 0)))
           }
           style={styles.controlButton}
           variant="outlined"
@@ -105,28 +108,14 @@ export function PropertyGalleryScreen({navigation, route}: Props) {
           </Pressable>
         ))}
       </View>
-      <View style={styles.controls}>
-        <AppButton
-          label="Share Property"
-          onPress={() => {
-            void shareProperty(property);
-          }}
-          style={styles.controlButton}
-        />
-        <AppButton
-          label="Download Placeholder"
-          onPress={() => showToast('Download flow will be connected during media integration.')}
-          style={styles.controlButton}
-          variant="outlined"
-        />
-      </View>
+      <AppButton label="Share Property" onPress={() => { void shareProperty(property); }} />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   hero: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.darkPurple,
     borderRadius: spacing.radiusXl,
     padding: spacing.xl,
     gap: spacing.sm,
@@ -145,11 +134,30 @@ const styles = StyleSheet.create({
     borderRadius: spacing.radiusXl,
     padding: spacing.xl,
     gap: spacing.sm,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  previewImage: {
+    width: '100%',
+    aspectRatio: 1.25,
+    borderRadius: spacing.radiusMd,
+    backgroundColor: colors.background,
+  },
+  mediaFallback: {
+    minHeight: 190,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    borderRadius: spacing.radiusMd,
+    backgroundColor: colors.brandPurpleSubtle,
+    padding: spacing.xl,
   },
   previewTitle: {
     color: colors.textPrimary,
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.semiBold,
+    flexShrink: 1,
   },
   previewSubtext: {
     color: colors.textSecondary,

@@ -112,6 +112,7 @@ interface BackendProperty {
     facing?: BackendNamedRef | null;
     floorNumber?: number | null;
     totalFloors?: number | null;
+    bathrooms?: number | null;
     details?: Record<string, unknown> | null;
   } | null;
   location?: BackendPropertyLocation | null;
@@ -347,7 +348,12 @@ export function normalizeProperty(raw: BackendProperty): Property {
     constructionYear: toOptionalNumber(details.constructionYear),
     floorNumber: raw.basic?.floorNumber ?? undefined,
     totalFloors: raw.basic?.totalFloors ?? undefined,
+    bathrooms: raw.basic?.bathrooms ?? undefined,
     readyState: toReadyState(details.readyState),
+    surveyNumber: typeof details.surveyNumber === 'string' ? details.surveyNumber : undefined,
+    waterSource: typeof details.waterSource === 'string' ? details.waterSource : undefined,
+    landType: typeof details.landType === 'string' ? details.landType : undefined,
+    commercialType: typeof details.commercialType === 'string' ? details.commercialType : undefined,
     status: mapStatus(raw.status),
     amenities: (raw.amenities ?? []).map(amenity => amenity.name),
     verified: raw.verificationStatus === 'APPROVED',
@@ -541,7 +547,7 @@ async function buildLocationBody(
     address: location.address,
     latitude: location.latitude,
     longitude: location.longitude,
-    pincode: location.pincode,
+    pincode: location.pincode?.trim() || undefined,
   };
 }
 
@@ -900,6 +906,7 @@ export async function addProperty(payload: AddPropertyPayload): Promise<Property
     // (built-up first) by writing areaSqFt back into builtUpAreaSqft.
     builtUpAreaSqft: payload.areaSqFt || undefined,
     bhkTypeId,
+    bathrooms: payload.bathrooms,
     facingId,
     floorNumber: payload.floorNumber,
     totalFloors: payload.totalFloors,
@@ -907,6 +914,10 @@ export async function addProperty(payload: AddPropertyPayload): Promise<Property
     roadWidth: payload.roadWidthFt,
     readyState: payload.readyState,
     furnishing: payload.furnishing,
+    surveyNumber: payload.surveyNumber || undefined,
+    waterSource: payload.waterSource || undefined,
+    landType: payload.landType || undefined,
+    commercialType: payload.commercialType || undefined,
     isPriceNegotiable: false,
     amenityIds,
     location,
@@ -935,12 +946,24 @@ export async function updateProperty(
   if (updates.description !== undefined) body.description = updates.description;
   if (updates.price !== undefined) body.price = updates.price;
   if (updates.areaSqFt !== undefined) body.builtUpAreaSqft = updates.areaSqFt;
-  if (updates.floorNumber !== undefined) body.floorNumber = updates.floorNumber;
-  if (updates.totalFloors !== undefined) body.totalFloors = updates.totalFloors;
+  if (updates.bathrooms !== undefined) body.bathrooms = updates.bathrooms;
+  // Presence matters here: an explicit undefined in an edited draft means the
+  // user changed to a property type where the old floor value is incompatible.
+  // PATCH accepts null for both fields, so send null to clear persisted stale data.
+  if (Object.prototype.hasOwnProperty.call(updates, 'floorNumber')) {
+    body.floorNumber = updates.floorNumber ?? null;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'totalFloors')) {
+    body.totalFloors = updates.totalFloors ?? null;
+  }
   if (updates.constructionYear !== undefined) body.constructionYear = updates.constructionYear;
   if (updates.roadWidthFt !== undefined) body.roadWidth = updates.roadWidthFt;
   if (updates.readyState !== undefined) body.readyState = updates.readyState;
   if (updates.furnishing !== undefined) body.furnishing = updates.furnishing;
+  if (updates.surveyNumber !== undefined) body.surveyNumber = updates.surveyNumber;
+  if (updates.waterSource !== undefined) body.waterSource = updates.waterSource;
+  if (updates.landType !== undefined) body.landType = updates.landType;
+  if (updates.commercialType !== undefined) body.commercialType = updates.commercialType;
   if (updates.status !== undefined) {
     body.status = REVERSE_STATUS_MAP[updates.status] ?? 'draft';
   }

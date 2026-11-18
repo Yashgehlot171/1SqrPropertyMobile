@@ -27,6 +27,7 @@ import type {
 } from '@/types';
 import {generateId} from '@/services/serviceUtils';
 import {showToast} from '@/utils/toast';
+import {openUploadedDocument} from '@/utils/documentActions';
 
 interface LegalRequestFormContentProps {
   navigation: NativeStackNavigationProp<ServicesStackParamList>;
@@ -218,7 +219,7 @@ export function LegalRequestFormContent({
       <SectionHeader title="Documents" />
       <UploadBox
         onPress={handleAddDocument}
-        subtitle="Add sale deed, ownership proof or ID placeholders."
+        subtitle="Attach available sale deed, ownership proof or identity documents."
         title="Add Image"
       />
       {documents.length ? (
@@ -232,7 +233,7 @@ export function LegalRequestFormContent({
               );
               showToast('Document removed.');
             }}
-            onView={() => showToast(`Viewing ${document.name}.`)}
+            onView={() => { void openUploadedDocument(document); }}
           />
         ))
       ) : (

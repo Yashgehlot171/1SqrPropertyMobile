@@ -5,6 +5,7 @@ import {formatCurrency} from '@/utils/formatCurrency';
 import {showToast} from '@/utils/toast';
 
 export async function callFinanceTeam(bank: LoanBank): Promise<void> {
+  if (!bank.phone) { showToast('Phone contact is not available for this lender.'); return; }
   try {
     await Linking.openURL(`tel:${bank.phone}`);
   } catch {
@@ -18,7 +19,7 @@ export async function openWhatsAppForFinanceTeam(
 ): Promise<void> {
   if (!bank.whatsapp) { showToast('WhatsApp contact is not available.'); return; }
   const message = encodeURIComponent(
-    `Hi ${bank.contactPerson}, I need help with ${context} from UrbanKart finance services.`,
+    `Hi${bank.contactPerson ? ` ${bank.contactPerson}` : ''}, I need help with ${context} from 1SQUARE Property.`,
   );
 
   try {
@@ -40,7 +41,7 @@ export async function shareEmiResult(
 ): Promise<void> {
   const financedAmount = Math.max(values.loanAmount - values.downPayment, 0);
   const message = [
-    'UrbanKart Loan EMI Estimate',
+    '1SQUARE Property Loan EMI Estimate',
     bank ? `Preferred Bank: ${bank.name}` : undefined,
     `Property Budget: ${formatCurrency(values.loanAmount)}`,
     `Down Payment: ${formatCurrency(values.downPayment)}`,

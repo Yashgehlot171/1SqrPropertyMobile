@@ -34,14 +34,17 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: {width: 0, height: 6},
     elevation: 2,
+    minHeight: 96,
+    justifyContent: 'center',
   },
   value: {
-    color: colors.primary,
+    color: colors.darkPurple,
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
   },
   label: {
     color: colors.textSecondary,
     fontSize: typography.fontSize.xs,
+    lineHeight: typography.lineHeight.xs,
   },
 });

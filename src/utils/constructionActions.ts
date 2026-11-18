@@ -5,6 +5,7 @@ import {formatCurrency} from '@/utils/formatCurrency';
 import {showToast} from '@/utils/toast';
 
 export async function callDirectoryPartner(entry: DirectoryEntry): Promise<void> {
+  if (!entry.phone) { showToast('Phone contact is not available.'); return; }
   try {
     await Linking.openURL(`tel:${entry.phone}`);
   } catch {
@@ -18,7 +19,7 @@ export async function openWhatsAppForDirectoryPartner(
 ): Promise<void> {
   if (!entry.whatsapp) { showToast('WhatsApp contact is not available.'); return; }
   const message = encodeURIComponent(
-    `Hi ${entry.name}, I need help with ${context} from UrbanKart services.`,
+    `Hi ${entry.name}, I need help with ${context} from 1SQUARE Property.`,
   );
 
   try {
@@ -32,7 +33,7 @@ export async function shareConstructionQuote(
   quote: ConstructionQuote,
 ): Promise<void> {
   const message = [
-    'UrbanKart Construction Estimate',
+    '1SQUARE Property Construction Estimate',
     `Quality: ${quote.quality}`,
     `Plot Size: ${quote.plotSizeSqFt} sq ft`,
     `Built-Up Area: ${quote.builtUpAreaSqFt} sq ft`,

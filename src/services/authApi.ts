@@ -49,6 +49,7 @@ interface CompleteProfileRequest {
   name: string;
   email: string;
   cityId: number;
+  address?: string;
   avatarFileId: string | number | null;
   selectedRole: UserRole;
   brokerProfile?: BrokerProfilePayload;
@@ -190,7 +191,8 @@ export async function completeProfile(
   const requestBody: CompleteProfileRequest = {
     name: payload.name,
     email: payload.email,
-    cityId: payload.cityId ?? await resolveCityId(payload.city),
+    cityId: payload.cityId ?? await resolveCityId(payload.city ?? ''),
+    address: payload.address?.trim(),
     avatarFileId: payload.avatarFileId ?? null,
     selectedRole: payload.selectedRole,
     ...(payload.selectedRole === 'broker' && payload.brokerProfile
@@ -222,8 +224,10 @@ export async function completeProfile(
       name: payload.name,
       mobile: payload.mobile,
       email: payload.email,
-      city: payload.city,
+      city: payload.city ?? '',
       cityId: requestBody.cityId,
+      stateId: payload.stateId,
+      address: requestBody.address,
       avatarFileId: requestBody.avatarFileId ?? undefined,
       role: payload.selectedRole,
     },

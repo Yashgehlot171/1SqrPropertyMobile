@@ -2,7 +2,7 @@ import {getEmiEstimate} from '@/services/calculatorApi';
 import {useRemoteAction} from '@/hooks/useRemoteFlow';
 import {useRemoteLoad} from '@/hooks/useRemoteFlow';
 import {RemoteStatus} from '@/components/common/RemoteStatus';
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -37,12 +37,16 @@ export function LoanCalculatorScreen({navigation}: Props) {
     () => banks.find(item => item.id === selectedBankId) ?? banks[0],
     [banks, selectedBankId],
   );
-  const [loanAmount, setLoanAmount] = useState('5000000');
-  const [downPayment, setDownPayment] = useState('500000');
-  const [tenureYears, setTenureYears] = useState('20');
-  const [interestRate, setInterestRate] = useState(
-    String(selectedBank?.interestRate ?? 8.5),
-  );
+  const [loanAmount, setLoanAmount] = useState('');
+  const [downPayment, setDownPayment] = useState('');
+  const [tenureYears, setTenureYears] = useState('');
+  const [interestRate, setInterestRate] = useState('');
+  useEffect(() => {
+    if (!selectedBankId && banks.length) setSelectedBankId(banks[0].id);
+  }, [banks, selectedBankId]);
+  useEffect(() => {
+    if (selectedBank?.interestRate) setInterestRate(String(selectedBank.interestRate));
+  }, [selectedBankId, selectedBank?.interestRate]);
 
   const financedAmount =
     Math.max(Number(loanAmount || 0) - Number(downPayment || 0), 0) || 0;
@@ -57,12 +61,13 @@ export function LoanCalculatorScreen({navigation}: Props) {
       }),
     [downPayment, interestRate, principal, tenureYears],
   );
+  const isCalculationReady = principal > 0 && Number(tenureYears) > 0 && Number(interestRate) > 0 && Number(downPayment || 0) >= 0 && Number(downPayment || 0) < principal;
 
   const resetCalculator = () => {
-    setLoanAmount('5000000');
-    setDownPayment('500000');
-    setTenureYears('20');
-    setInterestRate(String(selectedBank?.interestRate ?? 8.5));
+    setLoanAmount('');
+    setDownPayment('');
+    setTenureYears('');
+    setInterestRate(selectedBank?.interestRate ? String(selectedBank.interestRate) : '');
   };
 
   return (
@@ -75,7 +80,7 @@ export function LoanCalculatorScreen({navigation}: Props) {
             key={bank.id}
             onPress={() => {
               setSelectedBankId(bank.id);
-              setInterestRate(String(bank.interestRate));
+              setInterestRate(bank.interestRate ? String(bank.interestRate) : '');
             }}
             style={[
               styles.bankChip,
@@ -92,34 +97,20 @@ export function LoanCalculatorScreen({navigation}: Props) {
         ))}
       </View>
 
-      <AppInput
-        keyboardType="numeric"
-        label="Loan Amount"
-        onChangeText={setLoanAmount}
-        placeholder="5000000"
-        required
-        value={loanAmount}
-      />
-      <View style={styles.sliderTrack}>
-        <View style={styles.sliderFill} />
-        <View style={styles.sliderThumb} />
-      </View>
-      <View style={styles.rangeRow}>
-        <Text style={styles.rangeText}>Rs.1,00,000</Text>
-        <Text style={styles.rangeText}>Rs.5,00,00,000</Text>
-      </View>
+      <Text style={styles.helper}>{selectedBank?.interestRate ? `${selectedBank.name} supplied the rate shown below. Confirm terms with the lender.` : 'Enter the amount and lender terms you want to estimate. No offer or rate is preselected.'}</Text>
+      <AppInput keyboardType="numeric" label="Property Budget" onChangeText={setLoanAmount} placeholder="Enter amount" required value={loanAmount} />
       <AppInput
         keyboardType="numeric"
         label="Down Payment"
         onChangeText={setDownPayment}
-        placeholder="500000"
+        placeholder="Enter down payment"
         value={downPayment}
       />
       <AppInput
         keyboardType="numeric"
         label="Interest Rate (p.a.)"
         onChangeText={setInterestRate}
-        placeholder="8.5"
+        placeholder="Enter lender rate"
         required
         value={interestRate}
       />
@@ -127,12 +118,12 @@ export function LoanCalculatorScreen({navigation}: Props) {
         keyboardType="numeric"
         label="Loan Tenure"
         onChangeText={setTenureYears}
-        placeholder="20"
+        placeholder="Enter years"
         required
         value={tenureYears}
       />
 
-      <View style={styles.resultCard}>
+      {isCalculationReady ? <View style={styles.resultCard}>
         <Text style={styles.resultTitle}>Your EMI</Text>
         <View style={styles.emiRow}>
           <Text style={styles.emiValue}>
@@ -144,7 +135,7 @@ export function LoanCalculatorScreen({navigation}: Props) {
         <ResultRow label="Financed Amount" value={financedAmount} />
         <ResultRow label="Total Interest" value={emiResult.totalInterest} />
         <ResultRow label="Total Amount" value={emiResult.totalPayable} />
-      </View>
+      </View> : <View style={styles.waitingCard}><Text style={styles.waitingTitle}>EMI estimate</Text><Text style={styles.waitingCopy}>Enter a positive amount, tenure and lender rate, with a down payment below the property budget, to calculate an estimate.</Text></View>}
 
       <AppButton disabled={busy}
         label="Apply for Loan"
@@ -172,7 +163,7 @@ export function LoanCalculatorScreen({navigation}: Props) {
         })}
         style={styles.primaryButton}
       />
-      <Pressable onPress={resetCalculator} style={styles.resetButton}>
+      <Pressable disabled={busy} onPress={resetCalculator} style={styles.resetButton}>
         <Icon color={colors.primary} name="refresh-outline" size={18} />
         <Text style={styles.resetText}>Reset</Text>
       </Pressable>
@@ -223,35 +214,26 @@ const styles = StyleSheet.create({
   bankChipTextSelected: {
     color: colors.primary,
   },
-  sliderTrack: {
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: colors.border,
-    marginTop: -spacing.md,
-  },
-  sliderFill: {
-    width: '48%',
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: colors.primary,
-  },
-  sliderThumb: {
-    position: 'absolute',
-    left: '47%',
-    top: -5,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.primary,
-  },
-  rangeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: -spacing.lg,
-  },
-  rangeText: {
+  helper: {
     color: colors.textSecondary,
     fontSize: typography.fontSize.xs,
+    lineHeight: typography.lineHeight.xs,
+  },
+  waitingCard: {
+    padding: spacing.lg,
+    gap: spacing.xs,
+    borderRadius: spacing.radiusLg,
+    backgroundColor: colors.brandPurpleSubtle,
+  },
+  waitingTitle: {
+    color: colors.darkPurple,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+  },
+  waitingCopy: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.sm,
+    lineHeight: typography.lineHeight.sm,
   },
   resultCard: {
     backgroundColor: colors.white,

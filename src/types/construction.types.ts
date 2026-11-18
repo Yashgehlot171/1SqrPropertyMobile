@@ -28,9 +28,9 @@ export interface DirectoryEntry {
   id: Identifier;
   name: string;
   location: string;
-  rating: number;
-  phone: string;
-  whatsapp: string;
+  rating?: number;
+  phone?: string;
+  whatsapp?: string;
   tags?: string[];
 }
 

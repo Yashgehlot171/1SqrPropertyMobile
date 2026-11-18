@@ -38,14 +38,14 @@ export function LoanMarketplaceScreen({navigation}: Props) {
 
           return (
             bank.name.toLowerCase().includes(searchValue) ||
-            bank.city.toLowerCase().includes(searchValue) ||
-            bank.contactPerson.toLowerCase().includes(searchValue) ||
+            bank.city?.toLowerCase().includes(searchValue) ||
+            bank.contactPerson?.toLowerCase().includes(searchValue) ||
             bank.highlights.some(tag =>
               tag.toLowerCase().includes(searchValue),
             )
           );
         })
-        .sort((a, b) => a.interestRate - b.interestRate),
+        .sort((a, b) => (a.interestRate ?? Number.POSITIVE_INFINITY) - (b.interestRate ?? Number.POSITIVE_INFINITY)),
     [banks, query],
   );
 

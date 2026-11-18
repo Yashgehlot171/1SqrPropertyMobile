@@ -1,6 +1,6 @@
 import {useRemoteLoad} from '@/hooks/useRemoteFlow';
 import {RemoteStatus} from '@/components/common/RemoteStatus';
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
@@ -11,7 +11,6 @@ import {
   ScreenContainer,
   SectionHeader,
 } from '@/components';
-import {CONSTRUCTION_QUALITIES} from '@/constants/appConstants';
 import {colors} from '@/constants/colors';
 import {ROUTES} from '@/constants/routes';
 import {spacing} from '@/constants/spacing';
@@ -26,6 +25,9 @@ type Props = NativeStackScreenProps<
   ServicesStackParamList,
   'ConstructionCostCalculator'
 >;
+
+// These are the quality values currently accepted by calculateConstructionEstimate.
+const calculatorQualities: ConstructionQuality[] = ['Standard', 'Premium', 'Luxury'];
 
 export function ConstructionCostCalculatorScreen({navigation, route}: Props) {
   const loadRemote = useConstructionStore(state => state.load);
@@ -42,12 +44,16 @@ export function ConstructionCostCalculatorScreen({navigation, route}: Props) {
       packages.find(item => item.name === 'Standard'),
     [packages, route.params?.selectedPackageId],
   );
-  const [plotSizeSqFt, setPlotSizeSqFt] = useState('1200');
-  const [builtUpAreaSqFt, setBuiltUpAreaSqFt] = useState('1200');
-  const [floors, setFloors] = useState('2');
-  const [quality, setQuality] = useState<ConstructionQuality>(
-    selectedPackage?.quality ?? 'Standard',
-  );
+  const [plotSizeSqFt, setPlotSizeSqFt] = useState('');
+  const [builtUpAreaSqFt, setBuiltUpAreaSqFt] = useState('');
+  const [floors, setFloors] = useState('');
+  const [quality, setQuality] = useState<ConstructionQuality>('Standard');
+
+  useEffect(() => {
+    if (selectedPackage?.quality && calculatorQualities.includes(selectedPackage.quality)) {
+      setQuality(selectedPackage.quality);
+    }
+  }, [selectedPackage?.id, selectedPackage?.quality]);
 
   const packageForQuality = useMemo(
     () => packages.find(item => (item.quality ?? item.name) === quality),
@@ -84,7 +90,7 @@ export function ConstructionCostCalculatorScreen({navigation, route}: Props) {
     <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Construction Cost Calculator"
-        subtitle="Indicative standard-rate estimate, excluding GST; final package quote may differ"
+        subtitle="The construction calculator service returns this estimate. It is not a provider quotation."
         onBackPress={navigation.goBack}
       />
       {selectedPackage ? (
@@ -123,7 +129,7 @@ export function ConstructionCostCalculatorScreen({navigation, route}: Props) {
       />
       <SectionHeader title="Package Quality" />
       <View style={styles.qualityGrid}>
-        {CONSTRUCTION_QUALITIES.map(item => (
+        {calculatorQualities.map(item => (
           <Pressable
             key={item}
             onPress={() => setQuality(item)}
@@ -141,17 +147,25 @@ export function ConstructionCostCalculatorScreen({navigation, route}: Props) {
           </Pressable>
         ))}
       </View>
-      <Text style={styles.rateCopy}>
-        Selected rate: {packageForQuality?.costPerSqFt ?? 0} per sq ft
-      </Text>
+      <View style={styles.rateNote}>
+        <Text style={styles.rateCopy}>
+          {packageForQuality && packageForQuality.costPerSqFt > 0
+            ? `Catalogue reference: ${packageForQuality.costPerSqFt.toLocaleString('en-IN')} per sq ft`
+            : 'No catalogue reference rate is available for this quality. The estimate comes from the construction calculator service.'}
+        </Text>
+      </View>
       <View style={styles.actions}>
         <AppButton disabled={busy}
           label="Reset"
           onPress={() => {
-            setPlotSizeSqFt('1200');
-            setBuiltUpAreaSqFt('1200');
-            setFloors('2');
-            setQuality(selectedPackage?.quality ?? 'Standard');
+            setPlotSizeSqFt('');
+            setBuiltUpAreaSqFt('');
+            setFloors('');
+            setQuality(
+              selectedPackage?.quality && calculatorQualities.includes(selectedPackage.quality)
+                ? selectedPackage.quality
+                : 'Standard',
+            );
           }}
           style={styles.button}
           variant="outlined"
@@ -168,7 +182,7 @@ export function ConstructionCostCalculatorScreen({navigation, route}: Props) {
 
 const styles = StyleSheet.create({
   packageBanner: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.darkPurple,
     borderRadius: spacing.radiusXl,
     padding: spacing.xl,
     gap: spacing.xs,
@@ -214,12 +228,20 @@ const styles = StyleSheet.create({
   rateCopy: {
     color: colors.textSecondary,
     fontSize: typography.fontSize.sm,
+    lineHeight: typography.lineHeight.sm,
+  },
+  rateNote: {
+    padding: spacing.md,
+    borderRadius: spacing.radiusMd,
+    backgroundColor: colors.brandPurpleSubtle,
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   button: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 130,
   },
 });

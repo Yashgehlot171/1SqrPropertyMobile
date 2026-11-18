@@ -67,5 +67,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.screenVertical,
     paddingBottom: spacing.xxxl,
     gap: spacing.xl,
+    width: '100%',
   },
 });

@@ -27,6 +27,15 @@ import type {
 } from '@/types';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { showToast } from '@/utils/toast';
+import {
+  formatBuildingFloors,
+  formatHouseFloors,
+  formatPropertyFloor,
+  getPropertyFloorMode,
+  isHouseFloorMode,
+  isUnitFloorMode,
+  validatePropertyFloors,
+} from '@/utils/propertyFloors';
 
 import {
   AddPropertyHeader,
@@ -92,6 +101,32 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
       : isExisting
       ? 'Update Property'
       : 'Publish Property';
+  const floorMode = getPropertyFloorMode(draft.propertyType);
+
+  const validateRequiredDetails = (): boolean => {
+    const type = draft.propertyType.toLowerCase();
+    if (type.includes('house')) {
+      if (!draft.bhk) { showToast('Please select BHK'); return false; }
+      if (!draft.bathrooms) { showToast('Please select number of bathrooms'); return false; }
+      if (!draft.constructionYear || draft.constructionYear < 1800 || draft.constructionYear > 2100) {
+        showToast('Please select construction year');
+        return false;
+      }
+    }
+    const floorError = validatePropertyFloors(
+      draft.propertyType,
+      draft.floorNumber,
+      draft.totalFloors,
+    );
+    if (floorError) { showToast(floorError); return false; }
+    if (type.includes('agriculture') && (!draft.surveyNumber?.trim() || !draft.waterSource?.trim() || !draft.landType?.trim())) {
+      showToast('Please complete survey number, water source and land type'); return false;
+    }
+    if (type.includes('commercial') && !draft.commercialType?.trim()) {
+      showToast('Please enter commercial type'); return false;
+    }
+    return true;
+  };
 
   // Shared by both Publish and Save as Draft: the backend's create/update endpoints
   // both accept a `status` field (see propertyApi.ts's REVERSE_STATUS_MAP, which maps
@@ -116,6 +151,7 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
   };
 
   const handlePublish = async () => {
+    if (!validateRequiredDetails()) return;
     setPublishError(null);
     setIsPublishing(true);
     try {
@@ -144,6 +180,7 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
   };
 
   const handleSaveDraft = async () => {
+    if (!validateRequiredDetails()) return;
     setDraftSaveError(null);
     setIsSavingDraft(true);
     try {
@@ -285,7 +322,29 @@ export function PropertyPreviewScreen({ navigation, route }: Props) {
             label="Size"
             value={draft.areaSqFt ? `${draft.areaSqFt} sq ft` : 'Not added'}
           />
+          {draft.plotLength ? <PreviewRow label="Length" value={`${draft.plotLength} ft`} /> : null}
+          {draft.plotWidth ? <PreviewRow label="Width" value={`${draft.plotWidth} ft`} /> : null}
           {draft.bhk ? <PreviewRow label="BHK" value={draft.bhk} /> : null}
+          {draft.bathrooms !== undefined ? <PreviewRow label="Bathrooms" value={String(draft.bathrooms)} /> : null}
+          {draft.constructionYear ? <PreviewRow label="Construction Year" value={String(draft.constructionYear)} /> : null}
+          {isHouseFloorMode(floorMode) && draft.totalFloors !== undefined ? (
+            <PreviewRow
+              label="Number of Floors"
+              value={formatHouseFloors(draft.totalFloors)}
+            />
+          ) : null}
+          {isUnitFloorMode(floorMode) && draft.floorNumber !== undefined ? (
+            <PreviewRow
+              label="Your Property Floor"
+              value={formatPropertyFloor(draft.floorNumber)}
+            />
+          ) : null}
+          {isUnitFloorMode(floorMode) && draft.totalFloors !== undefined ? (
+            <PreviewRow
+              label="Total Building Floors"
+              value={formatBuildingFloors(draft.totalFloors)}
+            />
+          ) : null}
           <PreviewRow label="Facing" value={draft.facing || 'Not added'} />
           <PreviewRow
             label="Road Width"

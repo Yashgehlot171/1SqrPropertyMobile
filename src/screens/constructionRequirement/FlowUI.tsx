@@ -3,19 +3,22 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { KeyboardAwareScrollView } from '@/components';
+import {colors} from '@/constants/colors';
+import {spacing} from '@/constants/spacing';
+import {typography} from '@/constants/typography';
 
 export const flow = {
-  blue: '#0867E8',
-  blueSoft: '#EAF3FF',
-  ink: '#0E1B32',
-  muted: '#52627A',
-  line: '#E3EAF2',
-  surface: '#FFFFFF',
-  background: '#F9FBFE',
-  green: '#109B53',
-  greenSoft: '#E5F8EC',
-  red: '#D63736',
-  amber: '#E9A21B',
+  blue: colors.primary,
+  blueSoft: colors.primarySoft,
+  ink: colors.textPrimary,
+  muted: colors.textSecondary,
+  line: colors.border,
+  surface: colors.surface,
+  background: colors.background,
+  green: colors.success,
+  greenSoft: colors.successSoft,
+  red: colors.error,
+  amber: colors.accent,
 };
 
 export function FlowPage({
@@ -38,7 +41,7 @@ export function FlowPage({
     disabled?: boolean;
     loading?: boolean;
   };
-  secondary?: { label: string; onPress: () => void };
+  secondary?: { label: string; onPress: () => void; disabled?: boolean; loading?: boolean };
 }) {
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safe}>
@@ -131,6 +134,26 @@ export function FlowSection({
   );
 }
 
+export function FlowState({
+  icon = 'information-circle-outline',
+  title,
+  message,
+}: {
+  icon?: string;
+  title: string;
+  message: string;
+}) {
+  return (
+    <View style={styles.stateCard}>
+      <View style={styles.stateIcon}>
+        <Icon name={icon} size={24} color={flow.blue} />
+      </View>
+      <Text style={styles.stateTitle}>{title}</Text>
+      <Text style={styles.stateMessage}>{message}</Text>
+    </View>
+  );
+}
+
 export function FlowInfo({
   label,
   value,
@@ -168,11 +191,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: flow.ink },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: typography.fontSize.md, lineHeight: typography.lineHeight.md, fontWeight: typography.fontWeight.bold, color: colors.darkPurple },
   progressWrap: {
-    paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 10,
+    paddingHorizontal: spacing.screenHorizontal,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -180,26 +203,26 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     flex: 1,
-    height: 5,
-    borderRadius: 5,
-    backgroundColor: '#DCE8F7',
+    height: spacing.xs,
+    borderRadius: spacing.radiusPill,
+    backgroundColor: colors.primarySoft,
     overflow: 'hidden',
   },
-  progressFill: { height: 5, borderRadius: 5, backgroundColor: flow.blue },
-  progressText: { fontSize: 11, color: flow.muted, fontWeight: '600' },
-  content: { padding: 18, paddingBottom: 28, gap: 16 },
+  progressFill: { height: spacing.xs, borderRadius: spacing.radiusPill, backgroundColor: flow.blue },
+  progressText: { fontSize: typography.fontSize.xs, color: flow.muted, fontWeight: typography.fontWeight.semiBold },
+  content: { width: '100%', padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.lg },
   footer: {
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 12,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
     gap: 8,
     backgroundColor: flow.surface,
     borderTopWidth: 1,
     borderTopColor: flow.line,
   },
   button: {
-    minHeight: 47,
-    borderRadius: 5,
+    minHeight: spacing.buttonHeight,
+    borderRadius: spacing.radiusLg,
     backgroundColor: flow.blue,
     borderColor: flow.blue,
     borderWidth: 1,
@@ -209,26 +232,31 @@ const styles = StyleSheet.create({
   },
   outlineButton: { backgroundColor: flow.surface },
   disabled: { opacity: 0.5 },
-  buttonText: { fontSize: 13, fontWeight: '700', color: flow.surface },
+  buttonText: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.bold, color: flow.surface },
   outlineText: { color: flow.blue },
-  section: { gap: 10 },
-  sectionTitle: { color: flow.ink, fontSize: 15, fontWeight: '700' },
+  section: { gap: spacing.md },
+  sectionTitle: { color: flow.ink, ...typography.styles.sectionTitle },
+  stateCard: { alignItems: 'center', gap: spacing.md, padding: spacing.xl, borderRadius: spacing.radiusLg, borderWidth: 1, borderColor: flow.line, backgroundColor: flow.surface },
+  stateIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: spacing.radiusMd, backgroundColor: flow.blueSoft },
+  stateTitle: { textAlign: 'center', color: colors.darkPurple, ...typography.styles.cardTitle },
+  stateMessage: { textAlign: 'center', color: flow.muted, ...typography.styles.bodySmall },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: 10,
-    paddingVertical: 7,
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: flow.line,
   },
-  infoLabel: { fontSize: 12, color: flow.muted, flex: 1 },
+  infoLabel: { ...typography.styles.bodySmall, color: flow.muted, flex: 1 },
   infoValue: {
-    fontSize: 12,
+    ...typography.styles.bodySmall,
     color: flow.ink,
     fontWeight: '600',
     flex: 1,
     textAlign: 'right',
+    flexShrink: 1,
   },
-  infoStrong: { fontSize: 15, color: flow.blue, fontWeight: '800' },
+  infoStrong: {fontSize: typography.fontSize.md, lineHeight: typography.lineHeight.md, color: flow.blue, fontWeight: typography.fontWeight.bold},
 });

@@ -35,6 +35,14 @@ import type {
 } from '@/types';
 import { formatCurrency } from '@/utils/formatCurrency';
 import {
+  formatBuildingFloors,
+  formatHouseFloors,
+  formatPropertyFloor,
+  getPropertyFloorMode,
+  isHouseFloorMode,
+  isUnitFloorMode,
+} from '@/utils/propertyFloors';
+import {
   callPropertyOwner,
   openWhatsAppForProperty,
   shareProperty,
@@ -138,6 +146,8 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
       </SafeAreaView>
     );
   }
+
+  const floorMode = getPropertyFloorMode(property.propertyType);
 
   // All uploaded images, in backend sortOrder (normalizeMedia preserves array
   // order from the raw response) — the carousel below renders every one of these,
@@ -314,7 +324,7 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
             <Text style={styles.galleryCountText}>
               {galleryImages.length > 0
                 ? `${activeImageIndex + 1}/${galleryImages.length}`
-                : '1/12'}
+                : 'Image unavailable'}
             </Text>
           </View>
         </Pressable>
@@ -368,12 +378,12 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
         </View>
 
         <DetailSection title="About Property">
-          <Text style={styles.bodyText}>{property.description}</Text>
+          <Text style={styles.bodyText}>{property.description || 'Description not provided.'}</Text>
         </DetailSection>
 
         <DetailSection title="Amenities">
           <View style={styles.amenities}>
-            {property.amenities.map(item => (
+            {property.amenities.length ? property.amenities.map(item => (
               <View key={item} style={styles.amenity}>
                 <Icon
                   color={colors.brandPurple}
@@ -382,7 +392,7 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
                 />
                 <Text style={styles.amenityText}>{item}</Text>
               </View>
-            ))}
+            )) : <Text style={styles.bodyText}>No amenities listed.</Text>}
           </View>
         </DetailSection>
 
@@ -401,14 +411,22 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
                 : 'N/A'
             }
           />
-          <SpecRow
-            label="Floor Details"
-            value={
-              property.totalFloors
-                ? `${property.floorNumber ?? 0}/${property.totalFloors}`
-                : 'N/A'
-            }
-          />
+          {isHouseFloorMode(floorMode) && property.totalFloors ? (
+            <SpecRow
+              label="Number of Floors"
+              value={formatHouseFloors(property.totalFloors)}
+            />
+          ) : null}
+          {isUnitFloorMode(floorMode) ? (
+            <SpecRow
+              label="Floor Details"
+              value={
+                property.floorNumber !== undefined && property.totalFloors
+                  ? `${formatPropertyFloor(property.floorNumber)} / ${formatBuildingFloors(property.totalFloors)}`
+                  : 'N/A'
+              }
+            />
+          ) : null}
           <SpecRow label="Address" value={property.location.address ?? 'N/A'} />
           <SpecRow label="Landmark" value={property.location.district ?? 'N/A'} />
           <SpecRow label="Pincode" value={property.location.pincode ?? 'N/A'} />
@@ -423,7 +441,6 @@ export function PropertyDetailScreen({ navigation, route }: Props) {
           <View style={styles.ownerCopy}>
             <Text style={styles.ownerName}>{property.owner.name}</Text>
             <Text style={styles.ownerRole}>{property.owner.role}</Text>
-            <Text style={styles.memberText}>Member since Jan 2022</Text>
           </View>
           <Pressable onPress={callOwner} style={styles.ownerCall}>
             <Icon color={colors.white} name="call-outline" size={18} />
@@ -758,6 +775,8 @@ const styles = StyleSheet.create({
   priceRow: {
     alignItems: 'center',
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
     justifyContent: 'space-between',
     marginTop: spacing.sm,
   },
@@ -769,6 +788,8 @@ const styles = StyleSheet.create({
   propertyId: {
     color: colors.textSecondary,
     fontSize: typography.fontSize.xs,
+    flexShrink: 1,
+    textAlign: 'right',
   },
   quickActions: {
     flexDirection: 'row',
@@ -822,7 +843,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 72,
     padding: spacing.sm,
-    width: '31.7%',
+    width: '31%',
   },
   infoLabel: {
     color: colors.textSecondary,
@@ -929,11 +950,6 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
   },
   ownerRole: {
-    color: colors.textSecondary,
-    fontSize: typography.fontSize.xs,
-    marginTop: spacing.xs,
-  },
-  memberText: {
     color: colors.textSecondary,
     fontSize: typography.fontSize.xs,
     marginTop: spacing.xs,

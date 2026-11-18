@@ -27,17 +27,13 @@ export function LoanBankCard({
       <View style={styles.header}>
         <View style={styles.copy}>
           <Text style={styles.name}>{bank.name}</Text>
-          <Text style={styles.meta}>
-            {bank.city} | {bank.contactPerson}
-          </Text>
+          {bank.city || bank.contactPerson ? <Text style={styles.meta}>{[bank.city, bank.contactPerson].filter(Boolean).join(' · ')}</Text> : null}
         </View>
-        <StatusChip label={`${bank.interestRate}%`} />
+        {bank.interestRate ? <StatusChip label={`${bank.interestRate}%`} /> : null}
       </View>
-      <Text style={styles.meta}>Processing Fee: {bank.processingFee}</Text>
-      <Text style={styles.meta}>Eligibility: {bank.eligibility}</Text>
-      <Text style={styles.meta}>
-        Max Loan: {formatCurrency(bank.maxLoanAmount)}
-      </Text>
+      {bank.processingFee ? <Text style={styles.meta}>Processing fee: {bank.processingFee}</Text> : null}
+      {bank.eligibility ? <Text style={styles.meta}>Eligibility: {bank.eligibility}</Text> : null}
+      {bank.maxLoanAmount && bank.maxLoanAmount > 0 ? <Text style={styles.meta}>Maximum loan: {formatCurrency(bank.maxLoanAmount)}</Text> : null}
       <View style={styles.tags}>
         {bank.highlights.map(tag => (
           <StatusChip key={tag} label={tag} />
@@ -49,14 +45,9 @@ export function LoanBankCard({
           onPress={onApply}
           style={styles.button}
         />
-        <AppButton
-          label="Team Detail"
-          onPress={onViewTeam}
-          style={styles.button}
-          variant="outlined"
-        />
+        <AppButton label="Team Detail" onPress={onViewTeam} style={styles.button} variant="outlined" />
       </View>
-      <AppButton label="Call Team" onPress={onCall} variant="outlined" />
+      {bank.phone ? <AppButton label="Call Team" onPress={onCall} variant="outlined" /> : null}
     </View>
   );
 }
@@ -101,9 +92,12 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
+    alignItems: 'stretch',
   },
   button: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 140,
   },
 });

@@ -2,7 +2,7 @@ import {pickRequestAttachment} from '@/services/requestAttachment';
 import {useRemoteLoad, useRemoteAction} from '@/hooks/useRemoteFlow';
 import {RemoteStatus} from '@/components/common/RemoteStatus';
 import React, {useMemo, useState} from 'react';
-import {StyleSheet, Text} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
 import {
@@ -21,6 +21,8 @@ import {useSupportStore} from '@/store/supportStore';
 import type {ServicesStackParamList, UploadedDocument} from '@/types';
 import {generateId} from '@/services/serviceUtils';
 import {showToast} from '@/utils/toast';
+import {openUploadedDocument} from '@/utils/documentActions';
+import {spacing} from '@/constants/spacing';
 
 type Props = NativeStackScreenProps<ServicesStackParamList, 'SupportTicketForm'>;
 
@@ -107,7 +109,9 @@ function SupportTicketFormContent({navigation, route}: Props) {
         onBackPress={navigation.goBack}
       />
       <SectionHeader title="Ticket Information" />
-      {categories.map(category => <Text key={category.id} onPress={() => setIssueType(category.name)}>{category.name}</Text>)}
+      <View style={styles.categories}>
+        {categories.map(category => <Pressable key={category.id} onPress={() => setIssueType(category.name)} style={[styles.category, issueType === category.name && styles.categorySelected]}><Text style={[styles.categoryText, issueType === category.name && styles.categoryTextSelected]}>{category.name}</Text></Pressable>)}
+      </View>
       <AppInput
         label="Issue Type"
         onChangeText={setIssueType}
@@ -153,7 +157,7 @@ function SupportTicketFormContent({navigation, route}: Props) {
               );
               showToast('Document removed.');
             }}
-            onView={() => showToast(`Viewing ${document.name}.`)}
+            onView={() => { void openUploadedDocument(document); }}
           />
         ))
       ) : (
@@ -168,6 +172,11 @@ function SupportTicketFormContent({navigation, route}: Props) {
 }
 
 const styles = StyleSheet.create({
+  categories: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm},
+  category: {borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.white},
+  categorySelected: {backgroundColor: colors.primary, borderColor: colors.primary},
+  categoryText: {color: colors.textPrimary},
+  categoryTextSelected: {color: colors.white},
   emptyCopy: {
     color: colors.textSecondary,
     fontSize: typography.fontSize.sm,

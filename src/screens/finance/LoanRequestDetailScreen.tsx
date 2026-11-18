@@ -187,7 +187,7 @@ export function LoanRequestDetailScreen({navigation, route}: Props) {
     const document = await pickRequestAttachment('loan');
     if (document) { await addDocument(request.id, document); }
   })}
-          subtitle="Add income proof or KYC placeholders to this request."
+          subtitle="Attach income proof or KYC documents to this request."
           title="Upload Image"
         />
         {request.documents.length ? (

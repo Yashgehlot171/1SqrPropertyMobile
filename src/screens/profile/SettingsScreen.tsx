@@ -11,7 +11,9 @@ import {
   SectionHeader,
 } from '@/components';
 import {ROUTES} from '@/constants/routes';
+import {colors} from '@/constants/colors';
 import {spacing} from '@/constants/spacing';
+import {typography} from '@/constants/typography';
 import {useAuthStore} from '@/store/authStore';
 import type {ProfileStackParamList} from '@/types';
 import {showToast} from '@/utils/toast';
@@ -98,7 +100,10 @@ export function SettingsScreen({navigation}: Props) {
         />
       </View>
       <SectionHeader title="Security" />
-      <Text>Logout clears the current session. Delete account clears the local account session and returns to login.</Text>
+      <View style={styles.securityNote}>
+        <Text style={styles.securityTitle}>Account actions</Text>
+        <Text style={styles.securityCopy}>Logout ends your current session. Delete Account removes the account and returns you to sign in.</Text>
+      </View>
       <View style={styles.actions}>
         <AppButton
           label="Logout"
@@ -173,5 +178,23 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+  },
+  securityNote: {
+    gap: spacing.xs,
+    padding: spacing.lg,
+    borderRadius: spacing.radiusLg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  securityTitle: {
+    color: colors.darkPurple,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+  },
+  securityCopy: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.sm,
+    lineHeight: typography.lineHeight.sm,
   },
 });

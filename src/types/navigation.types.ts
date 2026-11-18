@@ -30,6 +30,12 @@ export type HomeStackParamList = {
   };
   Notifications: undefined;
   ConstructionRequirement: NavigatorScreenParams<ConstructionRequirementStackParamList>;
+  PropertyRequirementJourney: {requirementId?: string} | undefined;
+  MyPropertyRequirements: undefined;
+  PropertyRequirementDetail: {requirementId: string};
+  BrokerLeads: undefined;
+  BrokerBuyerLeadDetail: {requirementId: string; crmLeadId?: string};
+  BrokerLeadCrmDetail: {leadId: string; requirementId: string};
 };
 
 // "Build Your Dream Home" construction-requirement flow, entered from Home.
@@ -48,16 +54,25 @@ export type ConstructionRequirementStackParamList = {
   RfqSuccess: {rfq: import('../services/constructionJourneyApi').ConstructionRfq};
   MyRfqs: undefined;
   RfqDetail: {rfqId: string};
+  CustomerQuotesReceived: {rfqId: string};
+  CustomerQuotationDetail: {rfqId: string; quoteId: string; version?: number};
+  CompareCustomerQuotations: {rfqId: string; quoteIds: string[]};
   BuilderInvitations: undefined;
   ConstructionBusinessDashboard: undefined;
+  BuilderServiceAreas: undefined;
+  BuilderPortfolio: undefined;
   BuilderRfqDetail: {invitationId: string};
-  MatchingBuilders: {
-    location?: string;
-    buildType?: string;
-    budgetRange?: string;
-    floors?: number;
-    constructionStart?: string;
-  };
+  MyConstructionPlans: undefined;
+  BuilderConstructionPlanEditor: {planId?: string};
+  BuilderQuotation: {invitationId: string; revisionId?: string};
+  BuilderQuotationRevisions: undefined;
+  ConstructionProjects: {actor: 'customer' | 'builder'};
+  ConstructionProjectDetail: {projectId: string; actor: 'customer' | 'builder'};
+  ConstructionPayments: {projectId: string; actor: 'customer' | 'builder'};
+  ConstructionChangeOrders: {projectId: string; actor: 'customer' | 'builder'};
+  ConstructionMilestoneManage: {projectId: string};
+  MatchingBuilders: undefined;
+  BuilderProfile: {builderId: string; cityId: number; areaId: number};
     PackageComparison:
       | {
           planId?: string;

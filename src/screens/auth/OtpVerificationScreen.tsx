@@ -1,8 +1,8 @@
-import React, {useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import React, {useRef, useState} from 'react';
+import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
-import {AppButton, AppHeader, AppInput, ScreenContainer} from '@/components';
+import {AppButton, AppHeader, ScreenContainer} from '@/components';
 import {colors} from '@/constants/colors';
 import {ROUTES} from '@/constants/routes';
 import {spacing} from '@/constants/spacing';
@@ -19,6 +19,8 @@ export function OtpVerificationScreen({navigation, route}: Props) {
   const [errorMessage, setErrorMessage] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [otpFocused, setOtpFocused] = useState(false);
+  const otpInput = useRef<TextInput>(null);
   const setPendingMobile = useAuthStore(state => state.setPendingMobile);
   const login = useAuthStore(state => state.login);
 
@@ -95,20 +97,34 @@ export function OtpVerificationScreen({navigation, route}: Props) {
           <Text style={styles.testingOtpHint}>Enter this code below to continue.</Text>
         </View>
       ) : null}
-      <AppInput
-        errorMessage={errorMessage}
-        keyboardType="number-pad"
-        label="OTP"
-        maxLength={6}
-        onChangeText={value => {
-          setOtp(value.replace(/[^0-9]/g, ''));
-          if (errorMessage) {
-            setErrorMessage('');
-          }
-        }}
-        required
-        value={otp}
-      />
+      <View style={styles.otpField}>
+        <Text style={styles.otpLabel}>One-time password <Text style={styles.required}>*</Text></Text>
+        <Pressable accessibilityRole="button" onPress={() => otpInput.current?.focus()} style={styles.otpCells}>
+          {Array.from({length: 6}, (_, index) => (
+            <View key={index} style={[styles.otpCell, (otp[index] || (otpFocused && index === otp.length)) && styles.otpCellActive, errorMessage && styles.otpCellError]}>
+              <Text style={styles.otpDigit}>{otp[index] ?? ''}</Text>
+            </View>
+          ))}
+          <TextInput
+            accessibilityLabel="One-time password"
+            autoComplete="one-time-code"
+            caretHidden
+            keyboardType="number-pad"
+            maxLength={6}
+            onBlur={() => setOtpFocused(false)}
+            onChangeText={value => {
+              setOtp(value.replace(/[^0-9]/g, ''));
+              if (errorMessage) setErrorMessage('');
+            }}
+            onFocus={() => setOtpFocused(true)}
+            ref={otpInput}
+            style={styles.hiddenOtpInput}
+            textContentType="oneTimeCode"
+            value={otp}
+          />
+        </Pressable>
+        {errorMessage ? <Text style={styles.otpError}>{errorMessage}</Text> : null}
+      </View>
       <AppButton
         label="Verify OTP"
         loading={isVerifying}
@@ -155,6 +171,16 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: typography.fontWeight.semiBold,
   },
+  otpField: {gap: spacing.sm},
+  otpLabel: {color: colors.textPrimary, fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semiBold},
+  required: {color: colors.error},
+  otpCells: {flexDirection: 'row', gap: spacing.sm, position: 'relative'},
+  otpCell: {flex: 1, minWidth: 0, height: 54, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: spacing.radiusMd, backgroundColor: colors.background},
+  otpCellActive: {borderColor: colors.brandPurple, backgroundColor: colors.brandPurpleSubtle},
+  otpCellError: {borderColor: colors.error},
+  otpDigit: {color: colors.darkPurple, fontSize: typography.fontSize.xl, fontWeight: typography.fontWeight.bold},
+  hiddenOtpInput: {position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, opacity: 0.02, zIndex: 2},
+  otpError: {color: colors.error, fontSize: typography.fontSize.xs},
   testingOtpBox: {
     backgroundColor: colors.primarySoft,
     borderRadius: spacing.radiusMd,

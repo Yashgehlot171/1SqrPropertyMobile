@@ -2,11 +2,13 @@ import React from 'react';
 import {
   ActivityIndicator,
   KeyboardTypeOptions,
+  StyleProp,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
+  ViewStyle,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
@@ -104,8 +106,9 @@ export function FormField({
   maxLength,
   multiline,
   rightLabel,
+  containerStyle,
 }: {
-  label: string;
+  label?: string;
   value: string;
   onChangeText: (value: string) => void;
   placeholder?: string;
@@ -115,10 +118,11 @@ export function FormField({
   maxLength?: number;
   multiline?: boolean;
   rightLabel?: string;
+  containerStyle?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={styles.field}>
-      <FieldLabel label={label} required={required} />
+    <View style={[styles.field, containerStyle]}>
+      {label ? <FieldLabel label={label} required={required} /> : null}
       <View
         style={[
           styles.inputWrap,
@@ -426,7 +430,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    color: colors.textPrimary,
+    color: colors.darkPurple,
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
   },
@@ -447,9 +451,9 @@ const styles = StyleSheet.create({
     borderColor: colors.chipBorder,
     borderRadius: 13,
     borderWidth: 1,
-    height: 26,
+    height: 28,
     justifyContent: 'center',
-    width: 26,
+    width: 28,
   },
   stepCircleActive: {
     backgroundColor: colors.brandPurple,
@@ -465,7 +469,7 @@ const styles = StyleSheet.create({
   },
   stepLine: {
     backgroundColor: colors.chipBorder,
-    height: 1,
+    height: 2,
     width: 28,
   },
   intro: {
@@ -618,6 +622,11 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: spacing.radiusLg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   wrapRow: {
     flexDirection: 'row',
@@ -627,7 +636,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     alignItems: 'center',
     backgroundColor: colors.brandPurple,
-    borderRadius: spacing.radiusMd,
+    borderRadius: spacing.radiusLg,
     justifyContent: 'center',
     minHeight: 52,
   },

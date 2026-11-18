@@ -3,7 +3,7 @@ import {uploadFile} from '@/api';
 import type {UploadedDocument} from '@/types';
 
 /** Existing native image picker: uploads real images, never placeholder URIs. */
-export async function pickRequestAttachment(module: 'loan' | 'legal' | 'support'): Promise<UploadedDocument | undefined> {
+export async function pickRequestAttachment(module: 'loan' | 'legal' | 'support' | 'construction'): Promise<UploadedDocument | undefined> {
   const result = await launchImageLibrary({mediaType: 'photo', selectionLimit: 1});
   if (result.didCancel) { return undefined; }
   if (result.errorCode) { throw new Error(result.errorMessage ?? 'Unable to open photos.'); }

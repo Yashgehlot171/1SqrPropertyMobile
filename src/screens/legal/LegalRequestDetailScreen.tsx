@@ -29,6 +29,7 @@ import type {
 } from '@/types';
 import {callLegalTeam, openWhatsAppForLegalTeam} from '@/utils/legalActions';
 import {showToast} from '@/utils/toast';
+import {openUploadedDocument} from '@/utils/documentActions';
 
 type Props = NativeStackScreenProps<ServicesStackParamList, 'LegalRequestDetail'>;
 
@@ -176,7 +177,7 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
     const document = await pickRequestAttachment('legal');
     if (document) { await addDocument(request.id, document); }
   })}
-          subtitle="Add property papers or ID proof placeholders to this request."
+          subtitle="Attach available property papers or identity documents to this request."
           title="Upload Image"
         />
         {request.documents.length ? (
@@ -189,7 +190,7 @@ export function LegalRequestDetailScreen({navigation, route}: Props) {
                 showToast('Document deleted.');
               
   }); }}
-              onView={() => showToast(`Viewing ${document.name}.`)}
+              onView={() => { void openUploadedDocument(document); }}
             />
           ))
         ) : (

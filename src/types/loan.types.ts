@@ -17,15 +17,15 @@ export type LoanStatus =
 export interface LoanBank {
   id: Identifier;
   name: string;
-  interestRate: number;
-  processingFee: string;
-  eligibility: string;
-  maxLoanAmount: number;
-  turnaroundTime: string;
-  contactPerson: string;
-  phone: string;
-  whatsapp: string;
-  city: string;
+  interestRate?: number;
+  processingFee?: string;
+  eligibility?: string;
+  maxLoanAmount?: number;
+  turnaroundTime?: string;
+  contactPerson?: string;
+  phone?: string;
+  whatsapp?: string;
+  city?: string;
   highlights: string[];
 }
 

@@ -17,13 +17,13 @@ export type LegalStatus =
 export interface LegalTeam {
   id: Identifier;
   name: string;
-  specialization: string;
-  city: string;
-  phone: string;
-  whatsapp: string;
-  email: string;
-  experience: string;
-  highlights: string[];
+  specialization?: string;
+  city?: string;
+  phone?: string;
+  whatsapp?: string;
+  email?: string;
+  experience?: string;
+  highlights?: string[];
 }
 
 export interface LegalRequest {

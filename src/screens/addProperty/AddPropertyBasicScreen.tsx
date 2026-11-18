@@ -11,6 +11,7 @@ import { useMasterOptions } from '@/hooks/useMasterOptions';
 import { usePropertyStore } from '@/store/propertyStore';
 import type { AddPropertyStackParamList, PropertyType } from '@/types';
 import { KeyboardAwareScrollView } from '@/components';
+import { floorResetForPropertyTypeChange } from '@/utils/propertyFloors';
 
 import {
   AddPropertyHeader,
@@ -128,7 +129,13 @@ export function AddPropertyBasicScreen({ navigation, route }: Props) {
                   key={item.id}
                   label={item.name}
                   onPress={() =>
-                    updateDraft({ propertyType: item.name as PropertyType })
+                    updateDraft({
+                      propertyType: item.name as PropertyType,
+                      ...floorResetForPropertyTypeChange(
+                        draft.propertyType,
+                        item.name,
+                      ),
+                    })
                   }
                 />
               ))}

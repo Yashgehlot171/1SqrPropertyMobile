@@ -56,11 +56,11 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semiBold,
   },
   input: {
-    minHeight: 48,
+    minHeight: spacing.controlHeight,
     borderRadius: spacing.radiusMd,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.white,
     paddingHorizontal: spacing.md,
     color: colors.textPrimary,
     fontSize: typography.fontSize.sm,

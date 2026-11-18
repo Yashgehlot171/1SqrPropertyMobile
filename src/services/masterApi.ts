@@ -47,6 +47,7 @@ export interface MasterRecord {
   id: number;
   type: string;
   name: string;
+  slug?: string | null;
   code: string | null;
   description: string | null;
   parentId: number | null;
@@ -79,6 +80,7 @@ interface BackendMasterItem {
   id: number;
   type?: string;
   name?: string;
+  slug?: string | null;
   code?: string | null;
   description?: string | null;
   parentId?: number | null;
@@ -124,6 +126,7 @@ export function normalizeMasterRecord(item: BackendMasterItem): MasterRecord {
     id: item.id,
     type: item.type ?? '',
     name: item.name ?? '',
+    slug: item.slug ?? null,
     code: item.code ?? null,
     description: item.description ?? null,
     parentId: item.parentId ?? null,

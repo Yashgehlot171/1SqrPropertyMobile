@@ -24,9 +24,9 @@ export function ConstructionPackageCard({
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.copy}>
-          <Text style={styles.title}>{item.name}</Text>
+          <Text numberOfLines={2} style={styles.title}>{item.name}</Text>
           <Text style={styles.price}>
-            {formatCurrency(item.costPerSqFt)} / sq ft
+            Catalogue rate: {formatCurrency(item.costPerSqFt)} / sq ft
           </Text>
         </View>
         <StatusChip label={item.timeline} />
@@ -86,6 +86,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
+    flexShrink: 1,
   },
   price: {
     color: colors.primary,
@@ -108,9 +109,11 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   button: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 140,
   },
 });

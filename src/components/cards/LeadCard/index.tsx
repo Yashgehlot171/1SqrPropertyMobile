@@ -20,8 +20,8 @@ export function LeadCard({lead, onPress, onCall, onWhatsApp}: LeadCardProps) {
     <Pressable onPress={onPress} style={styles.card}>
       <View style={styles.header}>
         <View style={styles.copy}>
-          <Text style={styles.name}>{lead.buyer.name}</Text>
-          <Text style={styles.property}>{lead.property.title}</Text>
+          <Text numberOfLines={2} style={styles.name}>{lead.buyer.name}</Text>
+          <Text numberOfLines={2} style={styles.property}>{lead.property.title}</Text>
         </View>
         <StatusChip label={lead.status} />
       </View>
@@ -68,6 +68,13 @@ const styles = StyleSheet.create({
     borderRadius: spacing.radiusXl,
     padding: spacing.xl,
     gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.darkPurple,
+    shadowOpacity: 0.035,
+    shadowRadius: 10,
+    shadowOffset: {width: 0, height: 5},
+    elevation: 1,
   },
   header: {
     flexDirection: 'row',
@@ -91,6 +98,7 @@ const styles = StyleSheet.create({
   meta: {
     color: colors.textSecondary,
     fontSize: typography.fontSize.sm,
+    flexShrink: 1,
   },
   remark: {
     color: colors.textPrimary,

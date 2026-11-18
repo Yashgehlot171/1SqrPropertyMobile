@@ -101,13 +101,9 @@ export function SupportDashboardScreen({navigation}: Props) {
           title="FAQ"
         />
         <ServiceCard
-          description="Call back and contact support placeholder"
+          description="Create a ticket to contact the support team"
           icon="call-outline"
-          onPress={() =>
-            showToast(
-              'Contact Support: raise a local ticket or use WhatsApp/Call actions in service modules.',
-            )
-          }
+          onPress={() => navigation.navigate(ROUTES.services.supportTicketForm)}
           title="Contact Support"
         />
       </View>

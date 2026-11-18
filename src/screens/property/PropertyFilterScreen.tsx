@@ -103,7 +103,7 @@ export function PropertyFilterScreen({ navigation }: Props) {
               size={18}
             />
             <Text style={styles.selectorText}>
-              {draftFilters.city ?? cities[0] ?? 'Select location'}
+              {draftFilters.city ?? 'Select location'}
             </Text>
             <Icon color={colors.textSecondary} name="chevron-down" size={16} />
           </View>
@@ -136,21 +136,16 @@ export function PropertyFilterScreen({ navigation }: Props) {
         </FilterSection>
 
         <FilterSection title="Budget Range">
-          <View style={styles.rangeTrack}>
-            <View style={styles.rangeFill} />
-            <View style={[styles.rangeThumb, styles.rangeThumbStart]} />
-            <View style={[styles.rangeThumb, styles.rangeThumbEnd]} />
-          </View>
           <View style={styles.rangeValues}>
             <Text style={styles.rangeValue}>
               {draftFilters.minPrice
                 ? `₹${draftFilters.minPrice.toLocaleString('en-IN')}`
-                : '₹10,00,000'}
+                : 'No minimum'}
             </Text>
             <Text style={styles.rangeValue}>
               {draftFilters.maxPrice
                 ? `₹${draftFilters.maxPrice.toLocaleString('en-IN')}`
-                : '₹20,00,000'}
+                : 'No maximum'}
             </Text>
           </View>
           <View style={styles.inputRow}>
@@ -315,7 +310,7 @@ function NumericField({
 }) {
   return (
     <TextInput
-      keyboardType="number-pad"
+      keyboardType="decimal-pad"
       onChangeText={onChangeText}
       placeholder={placeholder}
       placeholderTextColor={colors.textSecondary}

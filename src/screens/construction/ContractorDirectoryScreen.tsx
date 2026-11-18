@@ -77,8 +77,8 @@ export function ContractorDirectoryScreen({navigation, route}: Props) {
   return (
     <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
-        title={route.params?.title ?? 'Contractor Directory'}
-        subtitle="Available partners; shortlists are saved for this session"
+        title={route.params?.title ?? 'Construction Service Providers'}
+        subtitle="Legacy service-provider directory. These records are not Builder accounts."
         onBackPress={navigation.goBack}
       />
       <SearchBar
@@ -118,7 +118,7 @@ export function ContractorDirectoryScreen({navigation, route}: Props) {
                   'house construction execution',
                 );
               }}
-              primaryLabel="Contractor"
+            primaryLabel="Service Provider"
             />
           );
         })

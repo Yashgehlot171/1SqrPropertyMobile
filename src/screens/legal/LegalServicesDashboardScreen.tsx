@@ -119,6 +119,7 @@ export function LegalServicesDashboardScreen({navigation}: Props) {
         />
       ))}
       <SectionHeader title="Legal Teams" />
+      {!teams.length ? <BannerCard ctaLabel="Refresh" title="Team details unavailable" description="No legal team directory entries are available right now." icon="information-circle-outline" onPress={() => { void loadRemote().catch(() => {}); }} /> : null}
       {teams.slice(0, 2).map(team => (
         <LegalTeamCard
           key={team.id}
@@ -135,7 +136,7 @@ export function LegalServicesDashboardScreen({navigation}: Props) {
       ))}
       <BannerCard
         ctaLabel="Open Tracking"
-        description="Use request tracking to update status, manage remarks, and review document placeholders."
+        description="Track submitted requests, review available status updates, and manage supporting documents."
         icon="briefcase-outline"
         onPress={() => navigation.navigate(ROUTES.services.legalRequestTracking)}
         title="Legal Request Workflow Ready"

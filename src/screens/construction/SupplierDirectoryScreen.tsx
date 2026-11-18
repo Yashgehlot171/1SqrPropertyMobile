@@ -60,7 +60,7 @@ export function SupplierDirectoryScreen({navigation}: Props) {
     <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Supplier Directory"
-        subtitle="Search, call, WhatsApp and shortlist suppliers"
+        subtitle="Browse supplier records and shortlist contacts"
         onBackPress={navigation.goBack}
       />
       <SearchBar

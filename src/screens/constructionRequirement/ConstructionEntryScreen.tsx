@@ -1,4 +1,5 @@
-import React from 'react';
+import React, {useCallback} from 'react';
+import {useFocusEffect} from '@react-navigation/native';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -43,7 +44,13 @@ const benefits = [
 export function ConstructionEntryScreen({ navigation }: Props) {
   const hasDraft = useConstructionJourneyStore(state => state.hasRequirementDraft);
   const user = useAuthStore(state => state.user);
+  const refreshProfile = useAuthStore(state => state.refreshProfile);
   const canUseBuilderInbox = canUseConstructionBuilder(user);
+  useFocusEffect(
+    useCallback(() => {
+      refreshProfile().catch(() => undefined);
+    }, [refreshProfile]),
+  );
   return (
     <FlowPage
       title="Construction"
@@ -85,6 +92,7 @@ export function ConstructionEntryScreen({ navigation }: Props) {
         ))}
       </View>
       {canUseBuilderInbox ? <Pressable accessibilityRole="button" onPress={() => navigation.navigate(ROUTES.constructionRequirement.constructionBusinessDashboard)} style={styles.builderAction}><Icon name="briefcase-outline" size={20} color={flow.blue} /><View style={styles.copy}><Text style={styles.benefitTitle}>Construction Business</Text><Text style={styles.benefitDetail}>Manage incoming RFQs and Builder activity.</Text></View><Icon name="chevron-forward" size={19} color={flow.muted} /></Pressable> : null}
+      <Pressable accessibilityRole="button" onPress={() => navigation.navigate(ROUTES.constructionRequirement.constructionProjects, {actor: 'customer'})} style={styles.builderAction}><Icon name="document-text-outline" size={20} color={flow.blue} /><View style={styles.copy}><Text style={styles.benefitTitle}>My Construction Projects</Text><Text style={styles.benefitDetail}>Review selected Builder agreements and acceptance status.</Text></View><Icon name="chevron-forward" size={19} color={flow.muted} /></Pressable>
     </FlowPage>
   );
 }

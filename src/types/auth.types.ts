@@ -7,6 +7,9 @@ export interface UserProfile {
   email: string;
   city: string;
   cityId?: number;
+  stateId?: number;
+  stateName?: string;
+  address?: string | null;
   role: UserRole;
   avatar?: string;
   avatarFileId?: Identifier | number | null;
@@ -46,9 +49,11 @@ export interface VerifyOtpResult {
 export interface CompleteProfilePayload {
   name: string;
   email: string;
-  city: string;
-  avatarFileId?: string | number | null;
+  city?: string;
+  stateId?: number;
   cityId?: number;
+  address?: string;
+  avatarFileId?: string | number | null;
   brokerProfile?: BrokerProfilePayload;
 }
 
@@ -88,5 +93,6 @@ export interface ProfileUpdatePayload {
   name?: string;
   email?: string;
   cityId?: number;
+  address?: string;
   avatarFileId?: string | number | null;
 }

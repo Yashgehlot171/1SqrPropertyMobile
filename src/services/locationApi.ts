@@ -30,6 +30,8 @@ export interface LocationSearchParams {
   limit?: number;
 }
 
+const LOCATION_PAGE_SIZE = 100;
+
 interface BackendLocationItem {
   id: number;
   type?: string;
@@ -68,18 +70,7 @@ function normalizeLocationSearchRecord(
 }
 
 export async function getStates(): Promise<LocationListResult> {
-  const response = await apiRequest<BackendLocationListResponse>({
-    endpoint: ApiRouteService.locations.states,
-    method: 'GET',
-    auth: 'none',
-  });
-
-  const items = (response.items ?? []).map(normalizeMasterRecord);
-
-  return {
-    items,
-    pagination: normalizeMasterPagination(response.pagination, items.length),
-  };
+  return getAllLocationPages(ApiRouteService.locations.states);
 }
 
 export async function getCitiesByState(
@@ -90,17 +81,28 @@ export async function getCitiesByState(
     String(stateId),
   );
 
-  const response = await apiRequest<BackendLocationListResponse>({
-    endpoint,
+  return getAllLocationPages(endpoint);
+}
+
+async function getAllLocationPages(endpoint: string): Promise<LocationListResult> {
+  const fetchPage = (page: number) => apiRequest<BackendLocationListResponse>({
+    endpoint: `${endpoint}${buildQueryString({page, limit: LOCATION_PAGE_SIZE})}`,
     method: 'GET',
     auth: 'none',
   });
-
-  const items = (response.items ?? []).map(normalizeMasterRecord);
+  const first = await fetchPage(1);
+  const firstItems = (first.items ?? []).map(normalizeMasterRecord);
+  const pagination = normalizeMasterPagination(first.pagination, firstItems.length);
+  const remainingPages = await Promise.all(
+    Array.from({length: Math.max(0, pagination.totalPages - 1)}, (_, index) => fetchPage(index + 2)),
+  );
 
   return {
-    items,
-    pagination: normalizeMasterPagination(response.pagination, items.length),
+    items: [
+      ...firstItems,
+      ...remainingPages.flatMap(response => (response.items ?? []).map(normalizeMasterRecord)),
+    ],
+    pagination,
   };
 }
 
@@ -110,18 +112,7 @@ export async function getAreasByCity(cityId: number): Promise<LocationListResult
     String(cityId),
   );
 
-  const response = await apiRequest<BackendLocationListResponse>({
-    endpoint,
-    method: 'GET',
-    auth: 'none',
-  });
-
-  const items = (response.items ?? []).map(normalizeMasterRecord);
-
-  return {
-    items,
-    pagination: normalizeMasterPagination(response.pagination, items.length),
-  };
+  return getAllLocationPages(endpoint);
 }
 
 export async function searchLocations(

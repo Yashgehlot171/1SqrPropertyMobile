@@ -1,6 +1,6 @@
 import { useRemoteLoad } from '@/hooks/useRemoteFlow';
 import { RemoteStatus } from '@/components/common/RemoteStatus';
-import React, { useState } from 'react';
+import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -24,7 +24,6 @@ import type { ServicesStackParamList } from '@/types';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { shareConstructionQuote } from '@/utils/constructionActions';
 import { formatDate } from '@/utils/dateUtils';
-import { showToast } from '@/utils/toast';
 
 type Props = NativeStackScreenProps<
   ServicesStackParamList,
@@ -61,17 +60,18 @@ export function ConstructionDashboardScreen({ navigation }: Props) {
       />
       <AppHeader
         title="Construction Services"
-        subtitle="Packages, calculator, quotations, materials and directory"
+        subtitle="Customer construction requests and service tools"
         onBackPress={navigation.goBack}
       />
       <View style={styles.hero}>
-        <Text style={styles.heroTitle}>Plan your build before you spend.</Text>
+        <Text style={styles.heroEyebrow}>CUSTOMER CONSTRUCTION</Text>
+        <Text style={styles.heroTitle}>Plan your build with 1SQUARE.</Text>
         <Text style={styles.heroCopy}>
-          Compare packages, estimate total cost, save quotations, and contact
-          shortlisted suppliers and contractors.
+          Share your requirements with eligible Builders, or use the separate
+          construction service tools below.
         </Text>
         <AppButton
-          label="Build Your Dream Home"
+          label="Request Builder Quotes"
           onPress={() =>
             navigation
               .getParent<any>()
@@ -98,10 +98,10 @@ export function ConstructionDashboardScreen({ navigation }: Props) {
           value={shortlistedSuppliers + shortlistedContractors}
         />
       </View>
-      <SectionHeader title="Construction Tools" />
+      <SectionHeader title="Construction Service Tools" />
       <View style={styles.grid}>
         <ServiceCard
-          description="Compare inclusions and per-sq-ft pricing"
+          description="Browse packages returned by the construction service catalogue"
           icon="layers-outline"
           onPress={() =>
             navigation.navigate(ROUTES.services.houseConstructionPackages)
@@ -109,7 +109,7 @@ export function ConstructionDashboardScreen({ navigation }: Props) {
           title="Packages"
         />
         <ServiceCard
-          description="Calculate a local build estimate"
+          description="Request an estimate from the construction calculator service"
           icon="calculator-outline"
           onPress={() =>
             navigation.navigate(ROUTES.services.constructionCostCalculator)
@@ -117,7 +117,7 @@ export function ConstructionDashboardScreen({ navigation }: Props) {
           title="Cost Calculator"
         />
         <ServiceCard
-          description="Browse recommended brands and specs"
+          description="Open the material catalogue when verified data is available"
           icon="flask-outline"
           onPress={() =>
             navigation.navigate(ROUTES.services.materialInformation)
@@ -125,40 +125,18 @@ export function ConstructionDashboardScreen({ navigation }: Props) {
           title="Materials"
         />
         <ServiceCard
-          description="Call and shortlist local supply partners"
+          description="Search and shortlist suppliers with available contact data"
           icon="storefront-outline"
           onPress={() => navigation.navigate(ROUTES.services.supplierDirectory)}
           title="Suppliers"
         />
         <ServiceCard
-          description="Discover contractors by city and experience"
+          description="Browse the legacy construction contractor directory"
           icon="people-outline"
           onPress={() =>
             navigation.navigate(ROUTES.services.contractorDirectory)
           }
           title="Contractors"
-        />
-        <ServiceCard
-          description="Architect discovery placeholder using local contractor data"
-          icon="business-outline"
-          onPress={() => {
-            showToast(
-              'Architect discovery is routed through the contractor directory for static workflow testing.',
-            );
-            navigation.navigate(ROUTES.services.contractorDirectory);
-          }}
-          title="Architects"
-        />
-        <ServiceCard
-          description="Interior designer discovery placeholder using local supplier data"
-          icon="color-palette-outline"
-          onPress={() => {
-            showToast(
-              'Interior designer discovery is routed through supplier partners for static workflow testing.',
-            );
-            navigation.navigate(ROUTES.services.supplierDirectory);
-          }}
-          title="Interior Designers"
         />
       </View>
       <SectionHeader title="Latest Quote" />
@@ -240,10 +218,10 @@ export function ConstructionDashboardScreen({ navigation }: Props) {
       )}
       <BannerCard
         ctaLabel="Browse Materials"
-        description="Use recommended materials first, then shortlist matching suppliers."
+        description="Check whether material catalogue data is available, then browse listed suppliers."
         icon="construct-outline"
         onPress={() => navigation.navigate(ROUTES.services.materialInformation)}
-        title="Material Planning"
+        title="Material Catalogue"
       />
     </ScreenContainer>
   );
@@ -251,7 +229,7 @@ export function ConstructionDashboardScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   hero: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.darkPurple,
     borderRadius: spacing.radiusXl,
     padding: spacing.xl,
     gap: spacing.md,
@@ -260,6 +238,12 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: typography.fontSize.xxl,
     fontWeight: typography.fontWeight.bold,
+  },
+  heroEyebrow: {
+    color: colors.accent,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 1,
   },
   heroCopy: {
     color: colors.textOnPrimaryMuted,

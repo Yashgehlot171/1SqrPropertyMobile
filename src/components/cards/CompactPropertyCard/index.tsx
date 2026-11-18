@@ -49,10 +49,15 @@ export function CompactPropertyCard({
   onCall,
   onWhatsApp,
 }: CompactPropertyCardProps) {
+  const [imageFailed, setImageFailed] = React.useState(false);
   return (
     <Pressable onPress={onPress} style={styles.card}>
       <View style={styles.imageWrap}>
-        <Image source={getPropertyImage(property)} style={styles.image} />
+        <Image
+          onError={() => setImageFailed(true)}
+          source={imageFailed ? fallbackImage : getPropertyImage(property)}
+          style={styles.image}
+        />
         <Pressable
           disabled={isSavePending}
           onPress={onToggleSave}
@@ -176,7 +181,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   imageWrap: {
-    width: 142,
+    width: '40%',
+    minWidth: 108,
+    maxWidth: 142,
     height: 156,
   },
   image: {

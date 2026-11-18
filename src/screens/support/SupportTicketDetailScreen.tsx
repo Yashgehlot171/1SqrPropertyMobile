@@ -30,6 +30,7 @@ import type {
   SupportTicketStatus,
 } from '@/types';
 import {showToast} from '@/utils/toast';
+import {openUploadedDocument} from '@/utils/documentActions';
 
 type Props = NativeStackScreenProps<ServicesStackParamList, 'SupportTicketDetail'>;
 
@@ -163,7 +164,7 @@ export function SupportTicketDetailScreen({navigation, route}: Props) {
     const document = await pickRequestAttachment('support');
     if (document) { await addDocument(ticket.id, document); }
   })}
-          subtitle="Add screenshots or proof placeholders to this ticket."
+          subtitle="Attach screenshots or supporting documents to this ticket."
           title="Upload Image"
         />
         {ticket.documents.length ? (
@@ -176,7 +177,7 @@ export function SupportTicketDetailScreen({navigation, route}: Props) {
                 showToast('Document deleted.');
               
   }); }}
-              onView={() => showToast(`Viewing ${document.name}.`)}
+              onView={() => { void openUploadedDocument(document); }}
             />
           ))
         ) : (

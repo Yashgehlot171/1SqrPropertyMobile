@@ -43,9 +43,13 @@ function body(payload: Partial<LoanRequest>) {
 }
 export async function getLoanBanks(): Promise<LoanBank[]> {
   const rows = await apiRequest<{id: string; name: string; interestRate?: string; processingFee?: string}[]>({endpoint: '/loans/banks'});
-  return rows.map(row => ({id: String(row.id), name: row.name, interestRate: Number(row.interestRate ?? 0),
-    processingFee: row.processingFee ?? '', eligibility: '', maxLoanAmount: 0, turnaroundTime: '', contactPerson: '',
-    phone: '', whatsapp: '', city: '', highlights: []}));
+  return rows.map(row => {
+    const parsedRate = Number(row.interestRate);
+    return {id: String(row.id), name: row.name,
+      interestRate: Number.isFinite(parsedRate) && parsedRate > 0 ? parsedRate : undefined,
+      processingFee: row.processingFee || undefined,
+      highlights: []};
+  });
 }
 export async function getLoanRequests() { return Promise.all((await getAllPages<RawRequest>(base)).map(presentLoan)); }
 export async function getLoanRequest(id: string) { return presentLoan(await apiRequest<RawRequest>({endpoint: base + '/' + id})); }

@@ -1,0 +1,30 @@
+import React, {useEffect, useState} from 'react';
+import {ActivityIndicator, ScrollView, StyleSheet, Text, View} from 'react-native';
+import type {NativeStackScreenProps} from '@react-navigation/native-stack';
+import type {ConstructionRequirementStackParamList} from '@/types';
+import {getCustomerQuotation, type CustomerQuotation} from '@/services/constructionJourneyApi';
+import {FlowPage, flow} from './FlowUI';
+import {area, dateLabel, label, money, QuoteCard, QuoteGroup, record} from './customerQuotationUi';
+type Props = NativeStackScreenProps<ConstructionRequirementStackParamList, 'CompareCustomerQuotations'>;
+export function CompareCustomerQuotationsScreen({navigation, route}: Props) {
+  const idsKey = Array.from(new Set(route.params.quoteIds)).slice(0, 3).join('|');
+  const [quotes, setQuotes] = useState<CustomerQuotation[]>([]); const [error, setError] = useState(''); const [loading, setLoading] = useState(true);
+  useEffect(() => {let active = true; const ids = idsKey ? idsKey.split('|') : []; if (ids.length < 2) {setError('Select at least two quotations from this request.'); setLoading(false); return () => {active = false;};} Promise.all(ids.map(id => getCustomerQuotation(route.params.rfqId, id))).then(result => {if (active) setQuotes(result);}).catch(() => {if (active) setError('These quotations cannot be compared. Choose quotations received for the same request.');}).finally(() => {if (active) setLoading(false);}); return () => {active = false;};}, [route.params.rfqId, idsKey]);
+  if (loading) return <FlowPage title="Compare Quotations" onBack={navigation.goBack}><View style={styles.state}><ActivityIndicator color={flow.blue}/></View></FlowPage>;
+  if (error || quotes.length < 2) return <FlowPage title="Compare Quotations" onBack={navigation.goBack}><Text style={styles.error}>{error || 'Unable to compare quotations.'}</Text></FlowPage>;
+  const group = (title: string, rows: (q: CustomerQuotation) => [string, string][]) => <QuoteGroup key={title} title={title}><ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}><View style={styles.columns}>{quotes.map(q => <View key={q.id} style={styles.column}><Text style={styles.builder}>{q.builder.name}</Text>{rows(q).map(([name, value]) => <View key={name} style={styles.row}><Text style={styles.key}>{name}</Text><Text style={styles.value}>{value || 'Not available'}</Text></View>)}</View>)}</View></ScrollView></QuoteGroup>;
+  return <FlowPage title="Compare Quotations" onBack={navigation.goBack}>
+    <Text style={styles.note}>Compare submitted offers for {quotes[0].request.requestNo}. Values are shown as submitted; no recommendation is made.</Text>
+    <View style={styles.summary}>{quotes.map(q => <QuoteCard key={q.id} title={q.builder.name}><Text style={styles.plan}>{q.plan.name} · V{q.plan.version}</Text><Text style={styles.amount}>{money(q.amount)}</Text><Text style={styles.plan}>{q.quoteNo} · Quote V{q.version}</Text></QuoteCard>)}</View>
+    {group('Pricing', q => [["Basis", q.commercial.pricingBasis === 'PER_SQ_FT' ? 'Per sq.ft.' : q.commercial.pricingBasis === 'FIXED' ? 'Fixed / custom' : 'Not specified'], ['Rate', q.commercial.pricingBasis === 'PER_SQ_FT' ? `${money(q.commercial.ratePerSqFt)} / sq.ft.` : 'Not applicable'], ['Base amount', money(q.commercial.baseAmount)], ['Additional work', money(q.commercial.additionalWork.reduce((s, item) => s + Number(item.amount || 0), 0))], ['Discount', q.commercial.discount ? `${label(q.commercial.discount.type)} ${label(q.commercial.discount.value)} · ${money(q.commercial.discountAmount)}` : `None · ${money(q.commercial.discountAmount || 0)}`], ['Final amount', money(q.commercial.totalAmount)]])}
+    {group('Area', q => [['Billable area', area(q.commercial.billableAreaSqFt)], ['Assessment note', q.commercial.areaAssessmentNote || 'None supplied']])}
+    {group('Timeline', q => {const t = record(q.commercial.timeline); return [['Estimated duration', t.duration == null ? 'Not specified' : `${label(t.duration)} ${label(t.unit).toLowerCase()}`], ['Expected start note', label(t.expectedStartNote) || 'Not specified']];})}
+    {group('Payment', q => {const p = record(q.commercial.paymentSchedule); const ms = Array.isArray(p.milestones) ? p.milestones.map(record) : []; return [['Milestones', String(ms.length)], ['Schedule', ms.length ? ms.map(m => `${label(m.name)} (${label(m.percentage)}%)`).join('\n') : 'Not specified']];})}
+    {group('Materials & Specifications', q => [['Plan', `${q.plan.name} · Version ${q.plan.version}`], ['Specifications', q.plan.specifications.length ? q.plan.specifications.map(s => `${s.category}: ${Object.entries(s.data).map(([k, v]) => `${k} ${String(v)}`).join(', ')}`).join('\n') : 'No structured specifications supplied']])}
+    {group('Inclusions', q => [['Included', q.commercial.inclusions.join('\n') || 'None listed']])}
+    {group('Exclusions', q => [['Excluded', q.commercial.exclusions.join('\n') || 'None listed']])}
+    {group('Warranty', q => [['Warranty', [q.commercial.warranty?.duration, q.commercial.warranty?.unit].filter(Boolean).join(' ') || 'Not specified'], ['Details', label(q.commercial.warranty?.description) || 'Not specified']])}
+    {group('Quote', q => [['Version', `V${q.version}`], ['Validity', 'Not provided'], ['Submitted', dateLabel(q.submittedAt)]])}
+  </FlowPage>;
+}
+const styles = StyleSheet.create({state: {minHeight: 180, alignItems: 'center', justifyContent: 'center'}, error: {color: flow.red, fontSize: 13}, note: {fontSize: 12, color: flow.muted, lineHeight: 18}, summary: {gap: 9}, plan: {fontSize: 11, color: flow.muted, lineHeight: 17}, amount: {fontSize: 18, fontWeight: '900', color: flow.blue}, columns: {flexDirection: 'row', gap: 8}, column: {width: 148, flexShrink: 0, borderTopWidth: 1, borderTopColor: flow.line, paddingTop: 8}, builder: {fontSize: 12, color: flow.blue, fontWeight: '800', marginBottom: 5}, row: {paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: flow.line}, key: {fontSize: 10, color: flow.muted}, value: {fontSize: 11, lineHeight: 16, color: flow.ink, marginTop: 2, flexShrink: 1}});

@@ -61,7 +61,6 @@ export function SavedPropertiesScreen({ navigation }: Props) {
     markContacted,
     removeInterested,
     removeContacted,
-    removeRecentlyViewed,
     clearRecentlyViewed,
   } = useSavedStore();
 
@@ -159,40 +158,15 @@ export function SavedPropertiesScreen({ navigation }: Props) {
     [favouriteIds],
   );
 
-  const removeFromCurrentBucket = async (propertyId: string) => {
-    if (activeTab === 'Favourite') {
-      // Routes through the same real, store-backed toggle every other consumer
-      // uses (savedStore.toggleFavourite -> real DELETE /properties/:propertyId/
-      // save), rather than only trimming the locally-displayed list. toggleFavourite
-      // applies its own optimistic update to favouriteIds and rolls it back (plus
-      // surfaces the failure via showApiError) if the call fails, so this only
-      // mirrors that outcome into the locally-fetched favouriteProperties list —
-      // and only once the toggle is confirmed to have actually removed it (i.e.
-      // not rolled back), keeping favouriteIds and favouriteProperties consistent.
-      await toggleFavourite(propertyId);
-      if (!useSavedStore.getState().favouriteIds.includes(propertyId)) {
-        setFavouriteProperties(current =>
-          current.filter(item => item.id !== propertyId),
-        );
-      }
-      return;
-    }
-    if (activeTab === 'Interested') {
-      removeInterested(propertyId);
-      return;
-    }
-    if (activeTab === 'Contacted') {
-      removeContacted(propertyId);
-      return;
-    }
-    removeRecentlyViewed(propertyId);
-    setRecentProperties(current => current.filter(item => item.id !== propertyId));
+  const removeFromCurrentBucket = (propertyId: string) => {
+    if (activeTab === 'Interested') removeInterested(propertyId);
+    if (activeTab === 'Contacted') removeContacted(propertyId);
   };
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable style={styles.headerButton}>
+        <Pressable accessibilityRole="button" onPress={navigation.goBack} style={styles.headerButton}>
           <Icon color={colors.textPrimary} name="chevron-back" size={22} />
         </Pressable>
         <Text style={styles.headerTitle}>Saved Properties</Text>
@@ -260,9 +234,9 @@ export function SavedPropertiesScreen({ navigation }: Props) {
         ) : listedProperties.length ? (
           <View style={styles.list}>
             {listedProperties.map(property => (
+              <View key={property.id} style={styles.savedItem}>
               <CompactPropertyCard
                 isSaved={isPropertySaved(property)}
-                key={property.id}
                 onCall={async () => {
                   markContacted(property.id);
                   await callPropertyOwner(property);
@@ -295,15 +269,13 @@ export function SavedPropertiesScreen({ navigation }: Props) {
                 }}
                 property={property}
               />
+              {activeTab === 'Interested' || activeTab === 'Contacted' ? (
+                <Pressable onPress={() => removeFromCurrentBucket(property.id)} style={styles.removeItem}>
+                  <Text style={styles.removeItemText}>Remove from {tabLabels[activeTab]}</Text>
+                </Pressable>
+              ) : null}
+              </View>
             ))}
-            <Pressable
-              onPress={() => removeFromCurrentBucket(listedProperties[0].id)}
-              style={styles.manageButton}
-            >
-              <Text style={styles.manageButtonText}>
-                Remove First {tabLabels[activeTab]}
-              </Text>
-            </Pressable>
           </View>
         ) : (
           <EmptyState
@@ -452,17 +424,20 @@ const styles = StyleSheet.create({
   list: {
     gap: spacing.lg,
   },
-  manageButton: {
-    alignItems: 'center',
-    borderColor: colors.chipBorder,
-    borderRadius: spacing.radiusMd,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 42,
+  savedItem: {
+    gap: spacing.sm,
   },
-  manageButtonText: {
-    color: colors.textPrimary,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
+  removeItem: {
+    minHeight: 38,
+    alignSelf: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.radiusPill,
+    backgroundColor: colors.brandPurpleSubtle,
+  },
+  removeItemText: {
+    color: colors.brandPurple,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semiBold,
   },
 });

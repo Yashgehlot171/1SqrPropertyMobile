@@ -51,15 +51,16 @@ export function FinanceTeamDetailScreen({navigation, route}: Props) {
     <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title={`${bank.name} Team`}
-        subtitle={bank.city}
+        subtitle={bank.city || 'Lender details'}
         onBackPress={navigation.goBack}
       />
       <View style={styles.hero}>
-        <Text style={styles.heroLabel}>Relationship Manager</Text>
-        <Text style={styles.heroTitle}>{bank.contactPerson}</Text>
-        <Text style={styles.heroCopy}>
-          {bank.turnaroundTime} | Rate starts at {bank.interestRate}%
-        </Text>
+        {bank.contactPerson ? <Text style={styles.heroLabel}>Lender contact</Text> : null}
+        {bank.contactPerson ? <Text style={styles.heroTitle}>{bank.contactPerson}</Text> : null}
+        <Text style={styles.heroCopy}>{[
+          bank.turnaroundTime,
+          bank.interestRate ? `${bank.interestRate}% rate supplied by lender` : undefined,
+        ].filter(Boolean).join(' · ') || 'Additional lender details have not been provided.'}</Text>
         <View style={styles.chips}>
           {bank.highlights.map(item => (
             <StatusChip key={item} label={item} />
@@ -69,18 +70,19 @@ export function FinanceTeamDetailScreen({navigation, route}: Props) {
       <View style={styles.card}>
         <SectionHeader title="Team Information" />
         <DetailRow label="Bank" value={bank.name} />
-        <DetailRow label="City" value={bank.city} />
-        <DetailRow label="Phone" value={bank.phone} />
-        <DetailRow label="WhatsApp" value={bank.whatsapp} />
-        <DetailRow label="Eligibility" value={bank.eligibility} />
+        <DetailRow label="City" value={bank.city || 'Not provided'} />
+        <DetailRow label="Phone" value={bank.phone || 'Not provided'} />
+        <DetailRow label="WhatsApp" value={bank.whatsapp || 'Not provided'} />
+        <DetailRow label="Eligibility" value={bank.eligibility || 'Not provided'} />
         <DetailRow
           label="Max Loan"
-          value={formatCurrency(bank.maxLoanAmount)}
+          value={bank.maxLoanAmount && bank.maxLoanAmount > 0 ? formatCurrency(bank.maxLoanAmount) : 'Not provided'}
         />
-        <DetailRow label="Processing Fee" value={bank.processingFee} />
-        <DetailRow label="Turnaround" value={bank.turnaroundTime} />
+        <DetailRow label="Processing Fee" value={bank.processingFee || 'Not provided'} />
+        <DetailRow label="Turnaround" value={bank.turnaroundTime || 'Not provided'} />
       </View>
-      <View style={styles.actions}>
+      {bank.phone || bank.whatsapp ? <View style={styles.actions}>
+        {bank.phone ? (
         <AppButton
           label="Call"
           onPress={() => {
@@ -89,6 +91,8 @@ export function FinanceTeamDetailScreen({navigation, route}: Props) {
           style={styles.button}
           variant="outlined"
         />
+        ) : null}
+        {bank.whatsapp ? (
         <AppButton
           label="WhatsApp"
           onPress={() => {
@@ -97,7 +101,8 @@ export function FinanceTeamDetailScreen({navigation, route}: Props) {
           style={styles.button}
           variant="outlined"
         />
-      </View>
+        ) : null}
+      </View> : null}
       <AppButton
         label="Start Loan Application"
         onPress={() =>

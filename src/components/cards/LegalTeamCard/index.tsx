@@ -20,15 +20,15 @@ export function LegalTeamCard({team, onView, onCall}: LegalTeamCardProps) {
       <View style={styles.header}>
         <View style={styles.copy}>
           <Text style={styles.name}>{team.name}</Text>
-          <Text style={styles.meta}>
-            {team.city} | {team.experience}
-          </Text>
+          {team.city || team.experience ? <Text style={styles.meta}>
+            {[team.city, team.experience].filter(Boolean).join(' | ')}
+          </Text> : null}
         </View>
-        <StatusChip label={team.specialization} />
+        {team.specialization ? <StatusChip label={team.specialization} /> : null}
       </View>
-      <Text style={styles.meta}>{team.email}</Text>
+      {team.email ? <Text style={styles.meta}>{team.email}</Text> : null}
       <View style={styles.tags}>
-        {team.highlights.map(item => (
+        {(team.highlights ?? []).map(item => (
           <StatusChip key={item} label={item} />
         ))}
       </View>
@@ -41,7 +41,7 @@ export function LegalTeamCard({team, onView, onCall}: LegalTeamCardProps) {
         />
         <AppButton
           label="Call Team"
-          onPress={onCall}
+          onPress={team.phone ? onCall : undefined}
           style={styles.button}
         />
       </View>

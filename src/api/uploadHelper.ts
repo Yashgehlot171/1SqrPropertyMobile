@@ -11,6 +11,7 @@ export type UploadModule =
   | 'property'
   | 'broker'
   | 'construction'
+  | 'construction-showcase'
   | 'legal'
   | 'loan'
   | 'support'

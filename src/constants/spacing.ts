@@ -13,4 +13,9 @@ export const spacing = {
   radiusLg: 16,
   radiusXl: 22,
   radiusXxl: 28,
+  radiusPill: 999,
+  radiusCard: 16,
+  radiusHero: 20,
+  controlHeight: 48,
+  buttonHeight: 50,
 } as const;

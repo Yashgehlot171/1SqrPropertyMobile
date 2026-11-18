@@ -36,7 +36,7 @@ import { useConstructionJourneyStore } from '@/store/constructionJourneyStore';
 import type { ConstructionRequirementStackParamList } from '@/types';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { calculateCornerPlotArea } from '@/utils/constructionCalculator';
-import { FlowButton, FlowInfo, FlowPage, FlowSection, flow } from './FlowUI';
+import { FlowButton, FlowInfo, FlowPage, FlowSection, FlowState, flow } from './FlowUI';
 
 type Nav = NativeStackNavigationProp<ConstructionRequirementStackParamList>;
 type Stage =
@@ -63,6 +63,15 @@ const titles: Record<Stage, string> = {
   QuoteRequests: 'Quote Requests',
   QuoteDetails: 'Quote Details',
   ProjectTracking: 'Project Tracking',
+};
+const unavailableLegacyCatalog: Partial<Record<Stage, string>> = {
+  PlanOverview: 'No verified customer-facing construction plan catalogue is connected. Builder names, plan inclusions, duration and rates are not available here.',
+  StructureSteel: 'Verified structural and steel specifications are not available for this legacy plan flow.',
+  DetailedSpecifications: 'This legacy screen has no live, verified construction specification data to show.',
+  FinishingMaterials: 'Finishing material selections are unavailable until a verified catalogue is connected.',
+  KitchenAmenities: 'Kitchen and amenity package details are unavailable in the current customer catalogue.',
+  CustomizePlan: 'Customization options and their costs cannot be confirmed from live data.',
+  RequestQuote: 'A legacy package quote cannot be submitted without verified plan and pricing data. Use the current construction requirement flow to request Builder quotations.',
 };
 const rates = { Silver: 1450, Gold: 1850, Premium: 2350 };
 const upgrades = [
@@ -218,6 +227,65 @@ export function ConstructionJourneyScreen() {
     }, [stage, journey.requestId]),
   );
 
+  const unavailableMessage = unavailableLegacyCatalog[stage];
+  if (unavailableMessage) {
+    return (
+      <FlowPage title={titles[stage]} onBack={navigation.goBack}>
+        <FlowState
+          icon={stage === 'RequestQuote' ? 'document-text-outline' : 'construct-outline'}
+          title={stage === 'RequestQuote' ? 'Legacy quote unavailable' : `${titles[stage]} unavailable`}
+          message={unavailableMessage}
+        />
+      </FlowPage>
+    );
+  }
+
+  if (stage === 'ProjectTracking') {
+    return (
+      <FlowPage title="Project Tracking" onBack={navigation.goBack}>
+        <FlowState
+          icon="time-outline"
+          title="Project tracking is not available yet"
+          message="Construction project creation, agreements, milestones, payments and handover tracking are not connected. No progress or dates are being reported here."
+        />
+        {selectedRequest ? (
+          <View style={styles.whiteCard}>
+            <Text style={styles.cardTitle}>Related legacy request</Text>
+            <Text style={styles.small}>{selectedRequest.title ?? selectedRequest.requestNo ?? 'Request details unavailable'}</Text>
+            <Status status={selectedRequest.status ?? 'pending'} />
+          </View>
+        ) : null}
+        {selectedRequest?.statusHistory?.length ? (
+          <FlowSection title="Request Status History">
+            <View style={styles.whiteCard}>
+              {selectedRequest.statusHistory.map(item => (
+                <View key={item.id} style={styles.history}>
+                  <Icon name="ellipse" size={11} color={flow.blue} />
+                  <View style={styles.grow}>
+                    <Text style={styles.cardTitle}>{item.newStatus}</Text>
+                    <Text style={styles.small}>{date(item.createdAt)} {item.remarks ?? ''}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </FlowSection>
+        ) : null}
+      </FlowPage>
+    );
+  }
+
+  if (stage === 'QuoteDetails' && isCurrentDraft) {
+    return (
+      <FlowPage title="Legacy Quote Details" onBack={navigation.goBack}>
+        <FlowState
+          icon="document-text-outline"
+          title="Saved estimate is unavailable"
+          message="This legacy estimate was based on sample package rates and is not a verified quotation. Request a current Builder quotation through the construction requirement flow."
+        />
+      </FlowPage>
+    );
+  }
+
   const specification = (id: string) =>
     mockMaterialSpecifications.find(
       item =>
@@ -366,7 +434,7 @@ export function ConstructionJourneyScreen() {
       }
     | undefined;
   let secondary: { label: string; onPress: () => void } | undefined;
-  switch (stage) {
+  switch (stage as Stage) {
     case 'PlanOverview':
       primary = {
         label: 'View Specifications',
@@ -420,7 +488,7 @@ export function ConstructionJourneyScreen() {
   }
   return (
     <FlowPage
-      title={titles[stage]}
+      title={stage === 'QuoteRequests' ? 'Legacy Quote Requests' : 'Legacy Quote Details'}
       onBack={navigation.goBack}
       primary={primary}
       secondary={secondary}
@@ -955,7 +1023,7 @@ export function ConstructionJourneyScreen() {
         </>
       ) : null}
 
-      {stage === 'ProjectTracking' ? (
+      {(stage as string) === 'ProjectTracking' ? (
         <>
           <Text style={styles.sectionHeading}>My Construction Project</Text>
           <View style={styles.whiteCard}>

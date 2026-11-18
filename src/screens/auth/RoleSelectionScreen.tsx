@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -65,7 +65,11 @@ export function RoleSelectionScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Pressable
           accessibilityRole="button"
           onPress={navigation.goBack}
@@ -75,6 +79,7 @@ export function RoleSelectionScreen({ navigation }: Props) {
         </Pressable>
 
         <View style={styles.header}>
+          <Text style={styles.brand}>1SQUARE PROPERTY</Text>
           <Text style={styles.title}>Choose Your Role</Text>
           <Text style={styles.subtitle}>
             Select the option that best describes you
@@ -144,7 +149,7 @@ export function RoleSelectionScreen({ navigation }: Props) {
             You can change this later from profile settings
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -155,9 +160,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: spacing.xxl,
     paddingBottom: spacing.xxl,
+    paddingTop: spacing.sm,
   },
   backButton: {
     width: 40,
@@ -169,6 +175,13 @@ const styles = StyleSheet.create({
   header: {
     marginTop: spacing.sm,
     marginBottom: spacing.xxl,
+  },
+  brand: {
+    marginBottom: spacing.sm,
+    color: colors.brandPurple,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 1.1,
   },
   title: {
     color: colors.textPrimary,
@@ -203,6 +216,7 @@ const styles = StyleSheet.create({
   },
   roleCardSelected: {
     borderColor: colors.brandPurple,
+    backgroundColor: colors.brandPurpleSubtle,
   },
   iconWrap: {
     width: 58,

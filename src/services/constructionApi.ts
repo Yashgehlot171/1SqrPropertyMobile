@@ -15,9 +15,13 @@ export async function getConstructionPackages(): Promise<ConstructionPackage[]> 
 }
 async function directory(endpoint: string): Promise<DirectoryEntry[]> {
   const rows = await getAllPages<{id: string; name: string; address?: string; mobile?: string; whatsapp?: string; averageRating?: string; materialCategory?: string; serviceType?: string}>(endpoint, 'none');
-  return rows.map(row => ({id: String(row.id), name: row.name, location: row.address ?? '',
-    rating: Number(row.averageRating ?? 0), phone: row.mobile ?? '', whatsapp: row.whatsapp ?? row.mobile ?? '',
-    tags: [row.materialCategory ?? row.serviceType ?? ''].filter(Boolean)}));
+  return rows.map(row => {
+    const parsedRating = Number(row.averageRating);
+    return {id: String(row.id), name: row.name, location: row.address ?? '',
+    rating: Number.isFinite(parsedRating) && parsedRating > 0 ? parsedRating : undefined,
+    phone: row.mobile || undefined, whatsapp: row.whatsapp || undefined,
+    tags: [row.materialCategory ?? row.serviceType ?? ''].filter(Boolean)};
+  });
 }
 export const getSuppliers = () => directory('/material-suppliers');
 export const getContractors = () => directory('/contractors');

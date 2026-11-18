@@ -1,5 +1,6 @@
 import {useRemoteLoad} from '@/hooks/useRemoteFlow';
-import React, {useCallback, useEffect, useRef} from 'react';
+import React, {useCallback} from 'react';
+import {useFocusEffect} from '@react-navigation/native';
 import {
   ActivityIndicator,
   Image,
@@ -23,6 +24,7 @@ import {useNotificationStore} from '@/store/notificationStore';
 import {usePropertyStore} from '@/store/propertyStore';
 import {useSavedStore} from '@/store/savedStore';
 import type {ProfileStackParamList} from '@/types';
+import {canUseConstructionBuilder} from '@/utils/authCapabilities';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'Profile'>;
 
@@ -46,7 +48,6 @@ export function ProfileScreen({navigation}: Props) {
   useRemoteLoad(loadNotifications);
   const notifications = useNotificationStore(state => state.notifications);
   const favouriteIds = useSavedStore(state => state.favouriteIds);
-  const hasFetchedProfile = useRef(false);
   const initials = (user?.name ?? 'A1')
     .split(' ')
     .map(part => part[0])
@@ -61,12 +62,11 @@ export function ProfileScreen({navigation}: Props) {
     }
   }, [refreshProfile]);
 
-  useEffect(() => {
-    if (!hasFetchedProfile.current) {
-      hasFetchedProfile.current = true;
+  useFocusEffect(
+    useCallback(() => {
       handleRefresh();
-    }
-  }, [handleRefresh]);
+    }, [handleRefresh]),
+  );
 
   if (isProfileLoading && !user) {
     return (
@@ -128,10 +128,11 @@ export function ProfileScreen({navigation}: Props) {
           <View style={styles.userInfo}>
             <Text style={styles.userName}>{user?.name ?? 'Profile'}</Text>
             <Text style={styles.userMeta}>
-              {user?.role ?? 'User'} | {user?.city ?? 'Unknown City'}
+              {user?.role ?? 'User'} | {[user?.city, user?.stateName].filter(Boolean).join(', ') || 'Unknown City'}
             </Text>
+            {user.address ? <Text style={styles.profileAddress}>{user.address}</Text> : null}
             <Text style={styles.userStatus}>
-              {user.accountStatus ?? user.status ?? 'Active'}
+              Account status · {user.accountStatus ?? user.status ?? 'Not available'}
             </Text>
           </View>
           <Pressable
@@ -156,7 +157,7 @@ export function ProfileScreen({navigation}: Props) {
                 {brokerProfile.officeAddress ?? 'Office address not added'}
               </Text>
               <Text style={styles.brokerText}>
-                Experience: {brokerProfile.experienceYears ?? 0} years
+                Experience: {brokerProfile.experienceYears != null ? `${brokerProfile.experienceYears} years` : 'Not added'}
               </Text>
               <Text style={styles.brokerText}>
                 RERA: {brokerProfile.reraNumber ?? 'Not added'}
@@ -165,10 +166,8 @@ export function ProfileScreen({navigation}: Props) {
                 GST: {brokerProfile.gstNumber ?? 'Not added'}
               </Text>
               <Text style={styles.brokerText}>
-                Status:{' '}
-                {brokerProfile.verificationStatus ??
-                  brokerProfile.status ??
-                  (brokerProfile.verified ? 'Verified' : 'Pending')}
+                Broker verification: {brokerProfile.verificationStatus ??
+                  (brokerProfile.verified === true ? 'Verified' : brokerProfile.verified === false ? 'Not verified' : 'Not available')}
               </Text>
               {brokerProfile.rejectionReason ||
               brokerProfile.verificationRemarks ||
@@ -198,6 +197,20 @@ export function ProfileScreen({navigation}: Props) {
 
       <SectionLabel title="My Activities" />
       <View style={styles.activityGrid}>
+        {canUseConstructionBuilder(user) ? (
+          <ActivityCard
+            icon="briefcase-outline"
+            title="Builder Dashboard"
+            onPress={() =>
+              tabNavigation?.navigate(ROUTES.tabs.homeStack, {
+                screen: ROUTES.home.constructionRequirement,
+                params: {
+                  screen: ROUTES.constructionRequirement.constructionBusinessDashboard,
+                },
+              })
+            }
+          />
+        ) : null}
         <ActivityCard
           icon="home-outline"
           title="My Properties"
@@ -378,6 +391,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     textTransform: 'capitalize',
   },
+  profileAddress: {
+    color: colors.textOnPrimarySoft,
+    fontSize: typography.fontSize.xs,
+    marginTop: spacing.xs,
+  },
   userStatus: {
     color: colors.textOnPrimarySoft,
     fontSize: typography.fontSize.xs,
@@ -488,7 +506,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   activityCard: {
-    width: '30.8%',
+    width: '29%',
     minHeight: 92,
     backgroundColor: colors.white,
     borderRadius: spacing.radiusMd,

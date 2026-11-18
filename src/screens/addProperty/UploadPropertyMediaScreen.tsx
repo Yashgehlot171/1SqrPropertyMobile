@@ -13,7 +13,6 @@ import { colors } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
-import { generateId } from '@/services/serviceUtils';
 import {
   MAX_PROPERTY_IMAGES,
   usePropertyImagePicker,
@@ -38,22 +37,10 @@ type Props = NativeStackScreenProps<
   'UploadPropertyMedia'
 >;
 
-const documentTypes: Array<{
-  label: string;
-  uploadLabel: string;
-  type: UploadedDocument['type'];
-}> = [
-  { label: 'Property Document', uploadLabel: 'property-document', type: 'PDF' },
-  { label: 'Registry Document', uploadLabel: 'registry-document', type: 'PDF' },
-  { label: 'ID Proof', uploadLabel: 'id-proof', type: 'PDF' },
-  { label: 'Other Document', uploadLabel: 'other-document', type: 'JPG' },
-];
-
 export function UploadPropertyMediaScreen({ navigation, route }: Props) {
   const draft = usePropertyStore(state => state.editorDraft);
   const editorPropertyId = usePropertyStore(state => state.editorPropertyId);
   const initializeDraft = usePropertyStore(state => state.initializeDraft);
-  const addDraftDocument = usePropertyStore(state => state.addDraftDocument);
   const removeDraftDocument = usePropertyStore(
     state => state.removeDraftDocument,
   );
@@ -104,18 +91,6 @@ export function UploadPropertyMediaScreen({ navigation, route }: Props) {
   if (!draft) {
     return null;
   }
-
-  const createDocument = (label: string, type: UploadedDocument['type']) => {
-    addDraftDocument({
-      id: generateId('document'),
-      name: `${label}-${draft.documents.length + 1}.${type.toLowerCase()}`,
-      type,
-      uri: `placeholder://${label.toLowerCase()}`,
-      uploadedAt: new Date().toISOString(),
-      status: 'uploaded',
-    });
-    showToast(`${label} uploaded locally.`);
-  };
 
   const handleNext = () => {
     if (mediaCount < 1) {
@@ -197,33 +172,19 @@ export function UploadPropertyMediaScreen({ navigation, route }: Props) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Documents (Optional)</Text>
           <View style={styles.documentCard}>
-            {documentTypes.map(item => {
-              const uploaded = draft.documents.find(document =>
-                document.name.startsWith(item.uploadLabel),
-              );
-
-              return (
-                <View key={item.label} style={styles.documentRow}>
+            {draft.documents.length ? draft.documents.map(document => (
+                <View key={document.id} style={styles.documentRow}>
                   <Icon
                     color={colors.textPrimary}
                     name="document-text-outline"
                     size={20}
                   />
-                  <Text style={styles.documentName}>{item.label}</Text>
-                  <Pressable
-                    onPress={() =>
-                      uploaded
-                        ? setSelectedDocument(uploaded)
-                        : createDocument(item.uploadLabel, item.type)
-                    }
-                  >
-                    <Text style={styles.uploadText}>
-                      {uploaded ? 'Remove' : 'Upload File'}
-                    </Text>
+                  <Text numberOfLines={2} style={styles.documentName}>{document.name}</Text>
+                  <Pressable onPress={() => setSelectedDocument(document)}>
+                    <Text style={styles.uploadText}>Remove</Text>
                   </Pressable>
                 </View>
-              );
-            })}
+              )) : <Text style={styles.documentNote}>Optional documents can be added when document upload is available.</Text>}
           </View>
         </View>
 
@@ -400,5 +361,11 @@ const styles = StyleSheet.create({
     color: colors.brandPurple,
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.bold,
+  },
+  documentNote: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.xs,
+    lineHeight: typography.lineHeight.sm,
+    padding: spacing.md,
   },
 });

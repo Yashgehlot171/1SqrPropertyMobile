@@ -111,7 +111,7 @@ interface ConstructionJourneyState {
     isCornerPlot: boolean;
     location: string;
   }) => void;
-  setPlotLocation: (details: {
+  setPlotLocation: (details: Partial<{
     state: string;
     stateId?: number;
     city: string;
@@ -120,7 +120,7 @@ interface ConstructionJourneyState {
     areaId?: number;
     address: string;
     landmark: string;
-  }) => void;
+  }>) => void;
   setFloorCount: (floorCount: number) => void;
   updateFloorRequirement: (floorId: string, updates: Partial<FloorRequirement>) => void;
   setRequirementDraft: () => void;
@@ -188,7 +188,17 @@ export const useConstructionJourneyStore = create<ConstructionJourneyState>(
         location: details.location,
       })),
     setPropertyDetails: details => set({...details, hasRequirementDraft: true}),
-    setPlotLocation: details => set({...details, hasRequirementDraft: true}),
+    setPlotLocation: details => set({
+      ...(details.state !== undefined ? {locationState: details.state} : {}),
+      ...('stateId' in details ? {locationStateId: details.stateId} : {}),
+      ...(details.city !== undefined ? {locationCity: details.city} : {}),
+      ...('cityId' in details ? {locationCityId: details.cityId} : {}),
+      ...(details.area !== undefined ? {locationArea: details.area} : {}),
+      ...('areaId' in details ? {locationAreaId: details.areaId} : {}),
+      ...(details.address !== undefined ? {locationAddress: details.address} : {}),
+      ...(details.landmark !== undefined ? {locationLandmark: details.landmark} : {}),
+      hasRequirementDraft: true,
+    }),
     setFloorCount: floorCount => set(state => {
       const normalizedCount = Math.max(1, Math.min(10, floorCount));
       const floors = Array.from({length: normalizedCount}, (_, index) =>

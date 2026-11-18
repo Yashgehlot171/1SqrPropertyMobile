@@ -8,6 +8,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/colors';
+import {spacing} from '@/constants/spacing';
 import { ROUTES } from '@/constants/routes';
 import { AddPropertyStack } from '@/navigation/AddPropertyStack';
 import { HomeStack } from '@/navigation/HomeStack';
@@ -49,11 +50,11 @@ export function MainTabNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: colors.secondary,
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarShowLabel: true,
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '600',
           marginTop: 2,
         },
@@ -64,13 +65,13 @@ export function MainTabNavigator() {
               ROUTES.home.constructionRequirement
               ? 'none'
               : 'flex',
-          height: 75,
-          marginHorizontal: 16,
+          height: 70,
+          marginHorizontal: 12,
           // 12 is the floating gap on a device with no nav inset; insets.bottom clears the system nav bar/gesture pill on top of that.
           marginBottom: 12 + insets.bottom,
-          paddingTop: 8,
+          paddingTop: 6,
           paddingBottom: 10,
-          borderRadius: 24,
+          borderRadius: spacing.radiusXl,
           borderTopWidth: 0,
           backgroundColor: colors.white,
           shadowColor: colors.darkPurple,
@@ -92,19 +93,9 @@ export function MainTabNavigator() {
           size: number;
         }) => (
           <Icon
-            color={focused ? colors.white : color}
+            color={color}
             name={tabIcon(route.name, focused)}
-            size={focused ? 20 : size}
-            style={
-              focused
-                ? {
-                    backgroundColor: colors.primary,
-                    borderRadius: 18,
-                    padding: 4,
-                    overflow: 'hidden',
-                  }
-                : undefined
-            }
+            size={focused ? 22 : size}
           />
         ),
       })}
@@ -164,7 +155,7 @@ export function MainTabNavigator() {
           },
         })}
         name={ROUTES.tabs.addPropertyStack}
-        options={{ title: 'Add Property' }}
+        options={{ title: 'Add' }}
       />
       <Tab.Screen
         component={ServicesStack}

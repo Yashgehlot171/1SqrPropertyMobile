@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, {useState} from 'react';
+import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
@@ -17,6 +17,7 @@ type Props = NativeStackScreenProps<
 >;
 
 export function ServicesDashboardScreen({ navigation }: Props) {
+  const [query, setQuery] = useState('');
   const quotes = useConstructionStore(state => state.quotes);
   const requests = useConstructionStore(state => state.requests);
   const shortlistedPartners =
@@ -28,10 +29,10 @@ export function ServicesDashboardScreen({ navigation }: Props) {
       <AppHeader title="Services" />
       <View style={styles.searchBox}>
         <Icon color={colors.textSecondary} name="search-outline" size={18} />
-        <Text style={styles.searchText}>Search services</Text>
+        <TextInput value={query} onChangeText={setQuery} placeholder="Search services" placeholderTextColor={colors.textSecondary} style={styles.searchInput} returnKeyType="search" />
       </View>
 
-      <ServiceGroup title="Construction Services">
+      <ServiceGroup title="Construction Services" filterText={query}>
         <ServiceTile
           icon="construct-outline"
           onPress={() =>
@@ -72,7 +73,7 @@ export function ServicesDashboardScreen({ navigation }: Props) {
         />
       </ServiceGroup>
 
-      <ServiceGroup title="Finance Services">
+      <ServiceGroup title="Finance Services" filterText={query}>
         <ServiceTile
           icon="cash-outline"
           onPress={() => navigation.navigate(ROUTES.services.loanCalculator)}
@@ -92,7 +93,7 @@ export function ServicesDashboardScreen({ navigation }: Props) {
         />
       </ServiceGroup>
 
-      <ServiceGroup title="Legal Services">
+      <ServiceGroup title="Legal Services" filterText={query}>
         <ServiceTile
           icon="shield-outline"
           onPress={() =>
@@ -116,7 +117,7 @@ export function ServicesDashboardScreen({ navigation }: Props) {
         />
       </ServiceGroup>
 
-      <ServiceGroup title="Support">
+      <ServiceGroup title="Support" filterText={query}>
         <ServiceTile
           icon="chatbubble-ellipses-outline"
           onPress={() => navigation.navigate(ROUTES.services.supportDashboard)}
@@ -148,7 +149,10 @@ export function ServicesDashboardScreen({ navigation }: Props) {
         {quotes.length} saved quotes | {requests.length} quote requests |{' '}
         {shortlistedPartners} shortlisted partners
       </Text>
-      {!quotes.length && !requests.length ? (
+      {query.trim() && !SERVICE_TITLES.some(title => title.toLowerCase().includes(query.trim().toLowerCase())) ? (
+        <EmptyState description="Try another service name." title="No services found" />
+      ) : null}
+      {!query.trim() && !quotes.length && !requests.length ? (
         <EmptyState
           description="Open construction, finance, legal or support to submit a service request."
           title="No service activity yet"
@@ -161,14 +165,21 @@ export function ServicesDashboardScreen({ navigation }: Props) {
 function ServiceGroup({
   title,
   children,
+  filterText,
 }: {
   title: string;
   children: React.ReactNode;
+  filterText: string;
 }) {
+  const normalizedQuery = filterText.trim().toLowerCase();
+  const visibleItems = React.Children.toArray(children).filter(child =>
+    React.isValidElement<{title: string}>(child) && child.props.title.toLowerCase().includes(normalizedQuery),
+  );
+  if (!visibleItems.length) return null;
   return (
     <View style={styles.group}>
       <Text style={styles.groupTitle}>{title}</Text>
-      <View style={styles.grid}>{children}</View>
+      <View style={styles.grid}>{visibleItems}</View>
     </View>
   );
 }
@@ -183,7 +194,7 @@ function ServiceTile({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.tile}>
+    <Pressable onPress={onPress} style={({pressed}) => [styles.tile, pressed && styles.tilePressed]}>
       <View style={styles.tileIcon}>
         <Icon color={colors.primary} name={icon} size={18} />
       </View>
@@ -205,8 +216,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginTop: -spacing.md,
   },
-  searchText: {
-    color: colors.textSecondary,
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 0,
+    color: colors.textPrimary,
     fontSize: typography.fontSize.sm,
   },
   group: {
@@ -223,11 +237,18 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   tile: {
-    width: '17.6%',
-    minHeight: 76,
+    width: '29%',
+    minHeight: 98,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: spacing.radiusMd,
+    borderWidth: 1,
+    borderColor: colors.roleCardBorder,
+    backgroundColor: colors.surface,
   },
+  tilePressed: {opacity: 0.78, transform: [{scale: 0.98}]},
   tileIcon: {
     width: 44,
     height: 44,
@@ -248,6 +269,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.vs,
     fontWeight: typography.fontWeight.bold,
     textAlign: 'center',
+    lineHeight: typography.lineHeight.xs,
   },
   activityText: {
     color: colors.textSecondary,
@@ -255,3 +277,10 @@ const styles = StyleSheet.create({
     marginTop: -spacing.md,
   },
 });
+
+const SERVICE_TITLES = [
+  'Construction Services', 'House Construction', 'Cost Calculator',
+  'Material Suppliers', 'Contractors', 'Loan Calculator', 'Loan Marketplace',
+  'Loan Requests', 'Property Verification', 'Property Registration',
+  'Legal Requests', 'Support Tickets', 'Architects', 'Interior Designers',
+];

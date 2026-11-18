@@ -1,7 +1,7 @@
 import {pickRequestAttachment} from '@/services/requestAttachment';
 import {useRemoteLoad, useRemoteAction} from '@/hooks/useRemoteFlow';
 import {RemoteStatus} from '@/components/common/RemoteStatus';
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
@@ -69,20 +69,20 @@ function LoanApplicationContent({navigation, route}: Props) {
     existingRequest?.employmentType ?? 'Salaried',
   );
   const [loanAmount, setLoanAmount] = useState(
-    String(existingRequest?.loanAmount ?? route.params?.loanAmount ?? 5000000),
+    String(existingRequest?.loanAmount ?? route.params?.loanAmount ?? ''),
   );
   const [downPayment, setDownPayment] = useState(
-    String(existingRequest?.downPayment ?? route.params?.downPayment ?? 500000),
+    String(existingRequest?.downPayment ?? route.params?.downPayment ?? ''),
   );
   const [tenureYears, setTenureYears] = useState(
-    String(existingRequest?.tenureYears ?? route.params?.tenureYears ?? 20),
+    String(existingRequest?.tenureYears ?? route.params?.tenureYears ?? ''),
   );
   const [interestRate, setInterestRate] = useState(
     String(
       existingRequest?.interestRate ??
         route.params?.interestRate ??
         defaultBank?.interestRate ??
-        8.5,
+        '',
     ),
   );
   const [propertyDetails, setPropertyDetails] = useState(
@@ -93,6 +93,13 @@ function LoanApplicationContent({navigation, route}: Props) {
   );
 
   const selectedBank = banks.find(item => item.id === preferredBankId);
+
+  useEffect(() => {
+    if (!preferredBankId && defaultBank) {
+      setPreferredBankId(defaultBank.id);
+      if (defaultBank.interestRate) setInterestRate(String(defaultBank.interestRate));
+    }
+  }, [defaultBank, preferredBankId]);
 
   const handleAddDocument = () => run(async () => {
     const document = await pickRequestAttachment('loan');
@@ -178,7 +185,7 @@ function LoanApplicationContent({navigation, route}: Props) {
           <Text style={styles.bankLabel}>Preferred bank</Text>
           <Text style={styles.bankTitle}>{selectedBank.name}</Text>
           <Text style={styles.bankCopy}>
-            {selectedBank.contactPerson} | {selectedBank.interestRate}% interest
+            {[selectedBank.contactPerson, selectedBank.interestRate ? `${selectedBank.interestRate}% lender rate` : undefined].filter(Boolean).join(' · ') || 'Additional lender details not provided'}
           </Text>
         </View>
       ) : null}
@@ -191,7 +198,7 @@ function LoanApplicationContent({navigation, route}: Props) {
             label={bank.name}
             onPress={() => {
               setPreferredBankId(bank.id);
-              setInterestRate(String(bank.interestRate));
+              setInterestRate(bank.interestRate ? String(bank.interestRate) : '');
             }}
           />
         ))}
@@ -262,7 +269,7 @@ function LoanApplicationContent({navigation, route}: Props) {
         label="Property Details"
         multiline
         onChangeText={setPropertyDetails}
-        placeholder="2 BHK flat in Noida Sector 62"
+        placeholder="Enter property details"
         required
         value={propertyDetails}
       />

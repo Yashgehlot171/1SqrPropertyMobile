@@ -30,9 +30,9 @@ export function DirectoryCard({
       <View style={styles.header}>
         <View style={styles.copy}>
           <Text style={styles.title}>{entry.name}</Text>
-          <Text style={styles.location}>{entry.location}</Text>
+          {entry.location ? <Text numberOfLines={2} style={styles.location}>{entry.location}</Text> : null}
         </View>
-        <StatusChip label={`${entry.rating}/5`} />
+        {entry.rating ? <StatusChip label={`${entry.rating}/5`} /> : null}
       </View>
       <View style={styles.tags}>
         <StatusChip label={primaryLabel} />
@@ -47,16 +47,13 @@ export function DirectoryCard({
         />
         <AppButton
           label="Call"
+          disabled={!entry.phone}
           onPress={onCall}
           style={styles.button}
           variant="outlined"
         />
       </View>
-      <AppButton
-        label="WhatsApp"
-        onPress={onWhatsApp}
-        variant="outlined"
-      />
+      <AppButton disabled={!entry.whatsapp} label="WhatsApp" onPress={onWhatsApp} variant="outlined" />
     </View>
   );
 }
@@ -89,6 +86,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.semiBold,
+    flexShrink: 1,
   },
   location: {
     color: colors.textSecondary,
@@ -101,9 +99,11 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   button: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 120,
   },
 });

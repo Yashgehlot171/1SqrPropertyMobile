@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -11,6 +11,16 @@ import { useMasterOptions } from '@/hooks/useMasterOptions';
 import { usePropertyStore } from '@/store/propertyStore';
 import type { AddPropertyStackParamList, PropertyReadyState } from '@/types';
 import { KeyboardAwareScrollView } from '@/components';
+import { showToast } from '@/utils/toast';
+import {
+  formatBuildingFloors,
+  formatHouseFloors,
+  formatPropertyFloor,
+  getPropertyFloorMode,
+  isHouseFloorMode,
+  isUnitFloorMode,
+  validatePropertyFloors,
+} from '@/utils/propertyFloors';
 
 import {
   AddPropertyHeader,
@@ -31,6 +41,20 @@ type Props = NativeStackScreenProps<
 >;
 
 const furnishingOptions = ['Unfurnished', 'Semi Furnished', 'Fully Furnished'];
+const currentYear = new Date().getFullYear();
+const constructionYears = Array.from({ length: 301 }, (_, index) => 1800 + index)
+  .sort((left, right) => Math.abs(left - currentYear) - Math.abs(right - currentYear))
+  .map(String);
+const propertyFloorValues = Array.from({length: 101}, (_, value) => value);
+const buildingFloorValues = Array.from({length: 100}, (_, index) => index + 1);
+const customHouseFloorValues = Array.from({length: 96}, (_, index) => index + 5);
+
+type PickerName =
+  | 'facing'
+  | 'year'
+  | 'propertyFloor'
+  | 'buildingFloors'
+  | 'houseCustom';
 
 export function AddPropertyDetailsScreen({ navigation, route }: Props) {
   const draft = usePropertyStore(state => state.editorDraft);
@@ -38,6 +62,9 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
   const initializeDraft = usePropertyStore(state => state.initializeDraft);
   const updateDraft = usePropertyStore(state => state.updateDraft);
   const [amenitiesInput, setAmenitiesInput] = useState('');
+  const [dimensions, setDimensions] = useState({length: '', width: ''});
+  const initializedDimensionKey = useRef<string | null>(null);
+  const [activePicker, setActivePicker] = useState<PickerName | null>(null);
   const facingOptions = useMasterOptions(
     'facing-directions',
     'Unable to load facing options right now.',
@@ -70,13 +97,41 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
     }
   }, [draft]);
 
-  const isResidential = useMemo(
-    () =>
-      draft
-        ? ['House', 'Flat', 'Commercial House'].includes(draft.propertyType)
-        : false,
-    [draft],
-  );
+  useEffect(() => {
+    if (!draft) return;
+    const key = String(editorPropertyId ?? 'new-property');
+    if (initializedDimensionKey.current === key) return;
+    initializedDimensionKey.current = key;
+    setDimensions({
+      length: draft.plotLength == null ? '' : String(draft.plotLength),
+      width: draft.plotWidth == null ? '' : String(draft.plotWidth),
+    });
+  }, [draft, editorPropertyId]);
+
+  const typeName = draft?.propertyType.toLowerCase() ?? '';
+  const isHouse = typeName.includes('house');
+  const isFlat = typeName.includes('flat');
+  const isAgriculture = typeName.includes('agriculture');
+  const isCommercial = typeName.includes('commercial');
+  const floorMode = getPropertyFloorMode(draft?.propertyType ?? '');
+  const showsHouseFloors = isHouseFloorMode(floorMode);
+  const showsUnitFloors = isUnitFloorMode(floorMode);
+
+  // Normalize legacy/edit data as soon as its type-specific screen is opened.
+  // House uses totalFloors only; land/plot/warehouse types use neither value.
+  useEffect(() => {
+    if (!draft) return;
+    if (showsHouseFloors && draft.floorNumber !== undefined) {
+      updateDraft({floorNumber: undefined});
+      return;
+    }
+    if (
+      floorMode === 'none' &&
+      (draft.floorNumber !== undefined || draft.totalFloors !== undefined)
+    ) {
+      updateDraft({floorNumber: undefined, totalFloors: undefined});
+    }
+  }, [draft, floorMode, showsHouseFloors, updateDraft]);
 
   if (!draft) {
     return null;
@@ -89,6 +144,37 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
 
     updateDraft({ amenities: nextAmenities });
     setAmenitiesInput(nextAmenities.join(', '));
+  };
+
+  const handleContinue = () => {
+    const invalidDimension = (['length', 'width'] as const).some(key => {
+      const value = dimensions[key].trim();
+      return value !== '' && (!Number.isFinite(Number(value)) || Number(value) <= 0);
+    });
+    if (invalidDimension) {
+      showToast('Enter a valid positive length and width, or leave them blank');
+      return;
+    }
+    if (isHouse) {
+      if (!draft.bhk) { showToast('Please select BHK'); return; }
+      if (!draft.bathrooms) { showToast('Please select number of bathrooms'); return; }
+      if (!draft.constructionYear) { showToast('Please select construction year'); return; }
+    }
+    const floorError = validatePropertyFloors(
+      draft.propertyType,
+      draft.floorNumber,
+      draft.totalFloors,
+    );
+    if (floorError) { showToast(floorError); return; }
+    if (isAgriculture && (!draft.surveyNumber?.trim() || !draft.waterSource?.trim() || !draft.landType?.trim())) {
+      showToast('Please complete survey number, water source and land type'); return;
+    }
+    if (isCommercial && !draft.commercialType?.trim()) {
+      showToast('Please enter commercial type'); return;
+    }
+    navigation.replace(ROUTES.addProperty.uploadPropertyMedia, {
+      propertyId: route.params?.propertyId,
+    });
   };
 
   return (
@@ -115,7 +201,7 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
 
         <FormField
           keyboardType="number-pad"
-          label="Property Size"
+          label={isHouse || isFlat ? 'Built-up Area' : 'Property Size'}
           onChangeText={value => updateDraft({ areaSqFt: Number(value || 0) })}
           placeholder="1800"
           required
@@ -124,32 +210,38 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
         />
 
         <View style={styles.doubleRow}>
-          <FormField
-            keyboardType="number-pad"
-            label="Length"
-            onChangeText={value =>
-              updateDraft({ floorNumber: Number(value || 0) || undefined })
-            }
-            placeholder="60"
-            rightLabel="ft"
-            value={draft.floorNumber ? String(draft.floorNumber) : ''}
-          />
-          <FormField
-            keyboardType="number-pad"
-            label="Width"
-            onChangeText={value =>
-              updateDraft({ totalFloors: Number(value || 0) || undefined })
-            }
-            placeholder="30"
-            rightLabel="ft"
-            value={draft.totalFloors ? String(draft.totalFloors) : ''}
-          />
+          {(['Length', 'Width'] as const).map(label => {
+            const field = label.toLowerCase() as 'length' | 'width';
+            return (
+              <FormField
+                containerStyle={styles.dimensionField}
+                key={label}
+                keyboardType="decimal-pad"
+                label={label}
+                onChangeText={text => {
+                  setDimensions(current => ({...current, [field]: text}));
+                  const parsed = Number(text.trim());
+                  const value = text.trim() && Number.isFinite(parsed) ? parsed : undefined;
+                  updateDraft(field === 'length' ? {plotLength: value} : {plotWidth: value});
+                }}
+                placeholder={label === 'Length' ? '60' : '30'}
+                rightLabel="ft"
+                value={dimensions[field]}
+              />
+            );
+          })}
         </View>
 
         <SelectField
+          disabled={
+            facingOptions.isLoading ||
+            Boolean(facingOptions.error) ||
+            facingOptions.items.length === 0
+          }
           label="Facing"
           value={draft.facing || ''}
           placeholder="Select facing"
+          onPress={() => setActivePicker('facing')}
         />
         {facingOptions.isLoading || facingOptions.error ? (
           <InlineAsyncState
@@ -158,22 +250,12 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
             loadingLabel="Loading facing options..."
             onRetry={facingOptions.reload}
           />
-        ) : (
-          <View style={styles.selectorChips}>
-            {facingOptions.items.map(option => (
-              <OptionChip
-                isSelected={draft.facing === option.name}
-                key={option.id}
-                label={option.name}
-                onPress={() => updateDraft({ facing: option.name })}
-              />
-            ))}
-          </View>
-        )}
+        ) : null}
 
         <SelectField
           label="Road Width"
-          value={draft.roadWidthFt ? `${draft.roadWidthFt} Feet` : '30 Feet'}
+          value={draft.roadWidthFt ? `${draft.roadWidthFt} Feet` : ''}
+          placeholder="Select road width"
         />
         <View style={styles.selectorChips}>
           {[20, 30, 40, 60].map(width => (
@@ -186,7 +268,7 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
           ))}
         </View>
 
-        {isResidential ? (
+        {isHouse || isFlat ? (
           <Section title="BHK">
             {bhkOptions.isLoading || bhkOptions.error ? (
               <InlineAsyncState
@@ -209,6 +291,89 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
             )}
           </Section>
         ) : null}
+
+        {isHouse || isFlat ? (
+          <Section title="Bathrooms">
+            <View style={styles.counterRow}>
+              <Pressable accessibilityLabel="Decrease bathrooms" disabled={(draft.bathrooms ?? 1) <= 1} onPress={() => updateDraft({ bathrooms: Math.max(1, (draft.bathrooms ?? 1) - 1) })} style={styles.counterButton}><Text style={styles.counterText}>−</Text></Pressable>
+              <Text style={styles.counterValue}>{draft.bathrooms ?? 'Select'}</Text>
+              <Pressable accessibilityLabel="Increase bathrooms" onPress={() => updateDraft({ bathrooms: (draft.bathrooms ?? 0) + 1 })} style={styles.counterButton}><Text style={styles.counterText}>+</Text></Pressable>
+            </View>
+          </Section>
+        ) : null}
+
+        {isHouse || isFlat ? (
+          <SelectField label="Construction Year" value={draft.constructionYear ? String(draft.constructionYear) : ''} placeholder="Select year" onPress={() => setActivePicker('year')} />
+        ) : null}
+
+        {showsHouseFloors ? (
+          <Section
+            required={floorMode === 'house-required'}
+            title="Number of Floors"
+          >
+            <View style={styles.optionRow}>
+              {[1, 2, 3, 4].map(value => (
+                <OptionChip
+                  isSelected={draft.totalFloors === value}
+                  key={value}
+                  label={formatHouseFloors(value)}
+                  onPress={() =>
+                    updateDraft({floorNumber: undefined, totalFloors: value})
+                  }
+                />
+              ))}
+              <OptionChip
+                isSelected={(draft.totalFloors ?? 0) > 4}
+                label="Custom"
+                onPress={() => setActivePicker('houseCustom')}
+              />
+            </View>
+            {(draft.totalFloors ?? 0) > 4 ? (
+              <SelectField
+                label="Custom Number of Floors"
+                onPress={() => setActivePicker('houseCustom')}
+                value={formatHouseFloors(draft.totalFloors!)}
+              />
+            ) : null}
+          </Section>
+        ) : null}
+
+        {showsUnitFloors ? (
+          <>
+            <SelectField
+              label="Your Property Floor"
+              onPress={() => setActivePicker('propertyFloor')}
+              placeholder="Select property floor"
+              required={floorMode === 'unit-required'}
+              value={
+                draft.floorNumber === undefined
+                  ? ''
+                  : formatPropertyFloor(draft.floorNumber)
+              }
+            />
+            <SelectField
+              label="Total Building Floors"
+              onPress={() => setActivePicker('buildingFloors')}
+              placeholder="Select building floors"
+              required={floorMode === 'unit-required'}
+              value={
+                draft.totalFloors === undefined
+                  ? ''
+                  : formatBuildingFloors(draft.totalFloors)
+              }
+            />
+          </>
+        ) : null}
+
+        {isAgriculture ? (
+          <>
+            <FormField label="Survey Number" onChangeText={surveyNumber => updateDraft({ surveyNumber })} placeholder="Enter survey number" value={draft.surveyNumber ?? ''} />
+            <FormField label="Water Source" onChangeText={waterSource => updateDraft({ waterSource })} placeholder="Enter water source" value={draft.waterSource ?? ''} />
+            <FormField label="Land Type" onChangeText={landType => updateDraft({ landType })} placeholder="Enter land type" value={draft.landType ?? ''} />
+          </>
+        ) : null}
+
+        {isCommercial ? <FormField label="Commercial Type" onChangeText={commercialType => updateDraft({ commercialType })} placeholder="e.g. Shop, Office" value={draft.commercialType ?? ''} /> : null}
 
         <SelectField label="Ownership Type" value={draft.ownerType} />
         <View style={styles.selectorChips}>
@@ -330,13 +495,71 @@ export function AddPropertyDetailsScreen({ navigation, route }: Props) {
 
         <PrimaryButton
           label="Save & Next"
-          onPress={() =>
-            // replace(), not navigate(): see AddPropertyBasicScreen's handleNext for why.
-            navigation.replace(ROUTES.addProperty.uploadPropertyMedia, {
-              propertyId: route.params?.propertyId,
-            })
-          }
+          onPress={handleContinue}
         />
+        <Modal transparent visible={activePicker !== null} animationType="slide" onRequestClose={() => setActivePicker(null)}>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.pickerSheet}>
+              <Text style={styles.pickerTitle}>
+                {activePicker === 'year'
+                  ? 'Construction Year'
+                  : activePicker === 'propertyFloor'
+                    ? 'Your Property Floor'
+                    : activePicker === 'buildingFloors'
+                      ? 'Total Building Floors'
+                      : activePicker === 'houseCustom'
+                        ? 'Number of Floors'
+                        : 'Facing'}
+              </Text>
+              <FlatList
+                data={
+                  activePicker === 'year'
+                    ? constructionYears.map(value => ({label: value, value}))
+                    : activePicker === 'propertyFloor'
+                      ? propertyFloorValues.map(value => ({
+                          label: formatPropertyFloor(value),
+                          value: String(value),
+                        }))
+                      : activePicker === 'buildingFloors'
+                        ? buildingFloorValues.map(value => ({
+                            label: formatBuildingFloors(value),
+                            value: String(value),
+                          }))
+                        : activePicker === 'houseCustom'
+                          ? customHouseFloorValues.map(value => ({
+                              label: formatHouseFloors(value),
+                              value: String(value),
+                            }))
+                          : facingOptions.items.map(item => ({
+                              label: item.name,
+                              value: item.name,
+                            }))
+                }
+                keyExtractor={item => item.value}
+                renderItem={({ item }) => (
+                  <Pressable style={styles.pickerOption} onPress={() => {
+                    if (activePicker === 'year') {
+                      updateDraft({constructionYear: Number(item.value)});
+                    } else if (activePicker === 'propertyFloor') {
+                      updateDraft({floorNumber: Number(item.value)});
+                    } else if (activePicker === 'buildingFloors') {
+                      updateDraft({totalFloors: Number(item.value)});
+                    } else if (activePicker === 'houseCustom') {
+                      updateDraft({
+                        floorNumber: undefined,
+                        totalFloors: Number(item.value),
+                      });
+                    } else {
+                      updateDraft({facing: item.value});
+                    }
+                    setActivePicker(null);
+                  }}><Text style={styles.pickerOptionText}>{item.label}</Text></Pressable>
+                )}
+              />
+              <Pressable style={styles.pickerCancel} onPress={() => setActivePicker(null)}><Text style={styles.pickerCancelText}>Cancel</Text></Pressable>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );
@@ -357,6 +580,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
   },
+  dimensionField: { flex: 1 },
+  counterRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  counterButton: { alignItems: 'center', borderColor: colors.chipBorder, borderRadius: 10, borderWidth: 1, height: 44, justifyContent: 'center', width: 48 },
+  counterText: { color: colors.brandPurple, fontSize: 24, fontWeight: '600' },
+  counterValue: { color: colors.textPrimary, fontSize: 18, fontWeight: '600', minWidth: 48, textAlign: 'center' },
+  modalBackdrop: { backgroundColor: 'rgba(0,0,0,0.35)', flex: 1, justifyContent: 'flex-end' },
+  pickerSheet: { backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '75%', padding: spacing.lg },
+  pickerTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: spacing.md },
+  pickerOption: { borderBottomColor: colors.chipBorder, borderBottomWidth: StyleSheet.hairlineWidth, minHeight: 48, justifyContent: 'center' },
+  pickerOptionText: { color: colors.textPrimary, fontSize: 16 },
+  pickerCancel: { alignItems: 'center', paddingVertical: spacing.md },
+  pickerCancelText: { color: colors.brandPurple, fontWeight: '700' },
   selectorChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',

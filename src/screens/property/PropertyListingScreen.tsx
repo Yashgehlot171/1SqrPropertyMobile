@@ -37,6 +37,7 @@ type Props = NativeStackScreenProps<HomeStackParamList, 'PropertyListing'>;
 
 export function PropertyListingScreen({ navigation, route }: Props) {
   const [query, setQuery] = useState(route.params?.query ?? '');
+  const [sortOrder, setSortOrder] = useState<'default' | 'priceLow' | 'priceHigh'>('default');
   const loadRemote = usePropertyStore(state => state.load);
   const remoteLoading = usePropertyStore(state => state.loading);
   const remoteError = usePropertyStore(state => state.error);
@@ -66,6 +67,13 @@ export function PropertyListingScreen({ navigation, route }: Props) {
       ),
     [appliedFilters, category, properties],
   );
+
+  const visibleProperties = useMemo(() => {
+    if (sortOrder === 'default') return filteredProperties;
+    return [...filteredProperties].sort((left, right) =>
+      sortOrder === 'priceLow' ? left.price - right.price : right.price - left.price,
+    );
+  }, [filteredProperties, sortOrder]);
 
   const activeFilterChips = useMemo(() => {
     const chips: string[] = [];
@@ -105,9 +113,6 @@ export function PropertyListingScreen({ navigation, route }: Props) {
           <Icon color={colors.textPrimary} name="chevron-back" size={22} />
         </Pressable>
         <Text style={styles.headerTitle}>Search Results</Text>
-        <Pressable style={styles.headerButton}>
-          <Icon color={colors.textPrimary} name="search-outline" size={21} />
-        </Pressable>
         <Pressable
           onPress={() => navigation.navigate(ROUTES.home.propertyFilter)}
           style={styles.headerButton}
@@ -145,27 +150,25 @@ export function PropertyListingScreen({ navigation, route }: Props) {
               />
               <Text style={styles.filterText}>Filters</Text>
             </Pressable>
-            <FilterChip label="Sort" />
-            {activeFilterChips.length ? (
-              activeFilterChips.map(chip => (
-                <FilterChip key={chip} label={chip} />
-              ))
-            ) : (
-              <>
-                <FilterChip label="Verified" />
-                <FilterChip label="Owner" />
-              </>
-            )}
+            <FilterChip
+              label={sortOrder === 'priceLow' ? 'Price: Low to High' : sortOrder === 'priceHigh' ? 'Price: High to Low' : 'Sort'}
+              selected={sortOrder !== 'default'}
+              onPress={() => setSortOrder(current => current === 'default' ? 'priceLow' : current === 'priceLow' ? 'priceHigh' : 'default')}
+            />
+            <FilterChip label="Verified" selected={Boolean(filters.verifiedOnly)} onPress={() => setFilters({...filters, search: query, verifiedOnly: !filters.verifiedOnly})} />
+            <FilterChip label="Owner" selected={Boolean(filters.ownerOnly)} onPress={() => setFilters({...filters, search: query, ownerOnly: !filters.ownerOnly})} />
+            <FilterChip label="Ready" selected={Boolean(filters.readyToMoveOnly)} onPress={() => setFilters({...filters, search: query, readyToMoveOnly: !filters.readyToMoveOnly})} />
+            {activeFilterChips.filter(chip => !['Verified', 'Owner', 'Ready To Move'].includes(chip)).map(chip => <View key={chip} style={styles.activeTag}><Text style={styles.activeTagText}>{chip}</Text></View>)}
           </View>
         </ScrollView>
 
         <Text style={styles.resultCount}>
-          {filteredProperties.length}+ Properties found
+          {visibleProperties.length} {visibleProperties.length === 1 ? 'Property' : 'Properties'} found
         </Text>
 
-        {filteredProperties.length ? (
+        {visibleProperties.length ? (
           <View style={styles.list}>
-            {filteredProperties.map(property => (
+            {visibleProperties.map(property => (
               <CompactPropertyCard
                 isSaved={favouriteIds.includes(property.id)}
                 key={property.id}
@@ -223,11 +226,11 @@ export function PropertyListingScreen({ navigation, route }: Props) {
   );
 }
 
-function FilterChip({ label }: { label: string }) {
+function FilterChip({label, selected = false, onPress}: {label: string; selected?: boolean; onPress: () => void}) {
   return (
-    <View style={styles.filterChip}>
-      <Text style={styles.filterText}>{label}</Text>
-    </View>
+    <Pressable accessibilityRole="button" accessibilityState={{selected}} onPress={onPress} style={[styles.filterChip, selected && styles.filterChipSelected]}>
+      <Text style={[styles.filterText, selected && styles.filterTextSelected]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -299,6 +302,10 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.bold,
   },
+  filterChipSelected: {backgroundColor: colors.primarySoft, borderColor: colors.primary},
+  filterTextSelected: {color: colors.primary},
+  activeTag: {alignItems: 'center', justifyContent: 'center', minHeight: 34, paddingHorizontal: spacing.md, borderRadius: spacing.radiusPill, backgroundColor: colors.brandPurpleSubtle},
+  activeTagText: {color: colors.primary, fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.semiBold},
   resultCount: {
     color: colors.textSecondary,
     fontSize: typography.fontSize.sm,

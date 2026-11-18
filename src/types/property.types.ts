@@ -56,7 +56,14 @@ export interface Property {
   bhk?: string;
   facing?: string;
   roadWidthFt?: number;
+  plotLength?: number;
+  plotWidth?: number;
   furnishing?: string;
+  bathrooms?: number;
+  surveyNumber?: string;
+  waterSource?: string;
+  landType?: string;
+  commercialType?: string;
   constructionYear?: number;
   floorNumber?: number;
   totalFloors?: number;

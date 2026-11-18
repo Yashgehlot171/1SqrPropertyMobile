@@ -29,8 +29,9 @@ export function AppHeader({
             <Icon color={colors.textPrimary} name="chevron-back" size={22} />
           </Pressable>
         ) : null}
+        <View style={styles.brandRule} />
         <View style={styles.titleGroup}>
-          <Text style={styles.title}>{title}</Text>
+          <Text numberOfLines={2} style={styles.title}>{title}</Text>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
       </View>
@@ -49,7 +50,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
-    minHeight: 52,
+    minHeight: 60,
+    paddingVertical: spacing.xs,
   },
   leftGroup: {
     flexDirection: 'row',
@@ -60,12 +62,20 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.transparent,
+    backgroundColor: colors.brandPurpleSubtle,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.brandPurpleSubtle,
+  },
+  brandRule: {
+    width: 3,
+    alignSelf: 'stretch',
+    minHeight: 34,
+    borderRadius: spacing.radiusPill,
+    backgroundColor: colors.brandPurple,
+    marginRight: spacing.sm,
   },
   titleGroup: {
     flex: 1,
@@ -74,12 +84,14 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.lg,
     lineHeight: typography.lineHeight.lg,
     fontWeight: typography.fontWeight.bold,
-    color: colors.textPrimary,
+    color: colors.darkPurple,
+    flexShrink: 1,
   },
   subtitle: {
     color: colors.textSecondary,
     fontSize: typography.fontSize.sm,
     marginTop: 2,
+    lineHeight: typography.lineHeight.xs,
   },
   rightLabel: {
     color: colors.white,

@@ -64,60 +64,43 @@ export function MaterialInformationScreen({navigation}: Props) {
     <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title="Material Information"
-        subtitle="Static brands, specs and pricing ranges"
+        subtitle="Material catalogue"
         onBackPress={navigation.goBack}
       />
-      <SearchBar
-        onChangeText={setQuery}
-        placeholder="Search materials, brands or specification"
-        value={query}
-      />
-      <View style={styles.chips}>
-        {categories.map(item => (
-          <Pressable
-            key={item}
-            onPress={() => setCategory(item)}
-            style={[
-              styles.chip,
-              category === item && styles.chipSelected,
-            ]}>
-            <Text
-              style={[
-                styles.chipText,
-                category === item && styles.chipTextSelected,
-              ]}>
-              {item}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      {filteredMaterials.length ? (
-        filteredMaterials.map(item => (
-          <MaterialCard
-            isSaved={savedMaterialIds.includes(item.id)}
-            item={item}
-            key={item.id}
-            onFindSuppliers={() => {
-              showToast(`Opening Supplier Directory for ${item.category}.`);
-              navigation.navigate(ROUTES.services.supplierDirectory);
-            }}
-            onToggleSave={() => {
-              const isSaved = savedMaterialIds.includes(item.id);
-              toggleSavedMaterial(item.id);
-              showToast(
-                isSaved
-                  ? 'Material removed from saved list.'
-                  : 'Material saved locally.',
-              );
-            }}
-          />
-        ))
-      ) : (
+      {!materials.length && !remoteLoading && !remoteError ? (
         <EmptyState
-          description="Try another category or search term."
-          title="No materials found"
+          description="No verified material brands, specifications, availability or prices are connected to this directory yet. You can still browse supplier records when available."
+          title="Material catalogue unavailable"
         />
-      )}
+      ) : materials.length ? (
+        <>
+          <SearchBar
+            onChangeText={setQuery}
+            placeholder="Search materials, brands or specification"
+            value={query}
+          />
+          <View style={styles.chips}>
+            {categories.map(item => (
+              <Pressable key={item} onPress={() => setCategory(item)} style={[styles.chip, category === item && styles.chipSelected]}>
+                <Text style={[styles.chipText, category === item && styles.chipTextSelected]}>{item}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {filteredMaterials.length ? filteredMaterials.map(item => (
+            <MaterialCard
+              isSaved={savedMaterialIds.includes(item.id)}
+              item={item}
+              key={item.id}
+              onFindSuppliers={() => navigation.navigate(ROUTES.services.supplierDirectory)}
+              onToggleSave={() => {
+                const isSaved = savedMaterialIds.includes(item.id);
+                toggleSavedMaterial(item.id);
+                showToast(isSaved ? 'Material removed from saved list.' : 'Material saved locally.');
+              }}
+            />
+          )) : <EmptyState description="Try another category or search term." title="No materials found" />}
+        </>
+      ) : null}
     </ScreenContainer>
   );
 }

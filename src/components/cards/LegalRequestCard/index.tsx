@@ -67,6 +67,13 @@ const styles = StyleSheet.create({
     borderRadius: spacing.radiusXl,
     padding: spacing.xl,
     gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.darkPurple,
+    shadowOpacity: 0.035,
+    shadowRadius: 10,
+    shadowOffset: {width: 0, height: 5},
+    elevation: 1,
   },
   header: {
     flexDirection: 'row',
@@ -86,12 +93,16 @@ const styles = StyleSheet.create({
   meta: {
     color: colors.textSecondary,
     fontSize: typography.fontSize.sm,
+    lineHeight: typography.lineHeight.sm,
+    flexShrink: 1,
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   button: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 120,
   },
 });

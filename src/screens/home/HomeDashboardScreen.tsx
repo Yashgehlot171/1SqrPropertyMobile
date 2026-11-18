@@ -1,6 +1,7 @@
 import { useRemoteLoad } from '@/hooks/useRemoteFlow';
 import { RemoteStatus } from '@/components/common/RemoteStatus';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   Image,
   ImageBackground,
@@ -27,6 +28,7 @@ import { useAuthStore } from '@/store/authStore';
 import { usePropertyStore } from '@/store/propertyStore';
 import { useSavedStore } from '@/store/savedStore';
 import type { HomeStackParamList, Property, PropertyType } from '@/types';
+import { canUseConstructionBuilder, isBroker } from '@/utils/authCapabilities';
 import { formatCurrency } from '@/utils/formatCurrency';
 import {
   callPropertyOwner,
@@ -76,7 +78,14 @@ export function HomeDashboardScreen({ navigation }: Props) {
   const markContacted = useSavedStore(state => state.markContacted);
   const favouriteIds = useSavedStore(state => state.favouriteIds);
   const user = useAuthStore(state => state.user);
+  const refreshProfile = useAuthStore(state => state.refreshProfile);
   const { width } = useWindowDimensions();
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshProfile().catch(() => undefined);
+    }, [refreshProfile]),
+  );
 
   const propertyCardWidth = Math.min(width * 0.56, 224);
 
@@ -134,7 +143,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
         loading={remoteLoading}
         error={remoteError}
         retry={() => {
-          void loadRemote().catch(() => {});
+          loadRemote().catch(() => undefined);
         }}
       />
       <KeyboardAwareScrollView
@@ -145,11 +154,11 @@ export function HomeDashboardScreen({ navigation }: Props) {
         <View style={styles.header}>
           <Pressable style={styles.locationButton}>
             <Icon color={colors.brandPurple} name="location" size={18} />
-            {/* `||` (not `??`) so a real but empty city string ("") also
-              falls back — city is always a string on UserProfile, so the
-              only case `||` changes vs `??` here is empty-string, which
-              should fall back too. */}
-            <Text style={styles.locationText}>{user?.city || 'Lucknow'}</Text>
+            <Text style={styles.locationText}>
+              {user?.city
+                ? [user.city, user.stateName].filter(Boolean).join(', ')
+                : 'Select location'}
+            </Text>
             <Icon color={colors.textPrimary} name="chevron-down" size={14} />
           </Pressable>
           <View style={styles.headerActions}>
@@ -237,8 +246,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
           <View style={styles.bannerCopy}>
             <Text style={styles.bannerTitle}>Find Your Dream Property</Text>
             <Text style={styles.bannerSubtitle}>
-              Buy, sell or construction-deveopment trusted properties in your
-              city
+              Discover verified properties and trusted construction services in your city.
             </Text>
             <Pressable
               onPress={() =>
@@ -274,6 +282,23 @@ export function HomeDashboardScreen({ navigation }: Props) {
             }
           />
           <QuickAction
+            icon="search-outline"
+            title="Post Requirement"
+            onPress={() => navigation.navigate(ROUTES.home.propertyRequirementJourney)}
+          />
+          <QuickAction
+            icon="list-outline"
+            title="My Requirements"
+            onPress={() => navigation.navigate(ROUTES.home.myPropertyRequirements)}
+          />
+          {isBroker(user) ? (
+            <QuickAction
+              icon="people-outline"
+              title="Buyer Leads"
+              onPress={() => navigation.navigate(ROUTES.home.brokerLeads)}
+            />
+          ) : null}
+          <QuickAction
             icon="business-outline"
             title="Construction"
             selected
@@ -281,34 +306,17 @@ export function HomeDashboardScreen({ navigation }: Props) {
               navigation.navigate(ROUTES.home.constructionRequirement, {})
             }
           />
-          <QuickAction
-            icon="wallet-outline"
-            title="Loan"
-            onPress={() =>
-              tabNavigation?.navigate(ROUTES.tabs.servicesStack, {
-                screen: ROUTES.services.loanMarketplace,
-              })
-            }
-          />
-          <QuickAction
-            icon="document-text-outline"
-            title="Legal"
-            onPress={() =>
-              tabNavigation?.navigate(ROUTES.tabs.servicesStack, {
-                screen: ROUTES.services.legalServicesDashboard,
-              })
-            }
-          />
-          <QuickAction
-            icon="build-outline"
-            title="Services"
-            onPress={() => tabNavigation?.navigate(ROUTES.tabs.servicesStack)}
-          />
-          <QuickAction
-            icon="grid-outline"
-            title="More"
-            onPress={() => tabNavigation?.navigate(ROUTES.tabs.servicesStack)}
-          />
+          {canUseConstructionBuilder(user) ? (
+            <QuickAction
+              icon="briefcase-outline"
+              title="Builder Dashboard"
+              onPress={() =>
+                navigation.navigate(ROUTES.home.constructionRequirement, {
+                  screen: ROUTES.constructionRequirement.constructionBusinessDashboard,
+                })
+              }
+            />
+          ) : null}
         </View>
 
         <SectionTitle
@@ -487,7 +495,7 @@ function QuickAction({
         <Icon
           name={icon}
           size={20}
-          color={selected ? '#0867E8' : colors.brandPurple}
+          color={selected ? colors.primary : colors.brandPurple}
         />
       </View>
       <Text style={[styles.quickTitle, selected && styles.quickTitleSelected]}>
@@ -598,25 +606,25 @@ const styles = StyleSheet.create({
   quickAction: {
     width: '23.5%',
     minHeight: 66,
-    borderRadius: 7,
+    borderRadius: spacing.radiusMd,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  quickActionSelected: { borderColor: '#0867E8', backgroundColor: '#F2F8FF' },
+  quickActionSelected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   quickIcon: {
     width: 35,
     height: 35,
-    borderRadius: 7,
-    backgroundColor: '#F4F1FB',
+    borderRadius: spacing.radiusSm,
+    backgroundColor: colors.brandPurpleSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  quickIconSelected: { backgroundColor: '#E4F0FF' },
+  quickIconSelected: { backgroundColor: colors.primarySoft },
   quickTitle: { fontSize: 10, color: colors.textPrimary, fontWeight: '600' },
-  quickTitleSelected: { color: '#0867E8', fontWeight: '700' },
+  quickTitleSelected: { color: colors.primary, fontWeight: '700' },
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
@@ -757,21 +765,21 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   heroBanner: {
-    borderRadius: spacing.radiusXl,
-    height: 164,
+    borderRadius: spacing.radiusHero,
+    minHeight: 164,
     justifyContent: 'center',
     marginTop: spacing.lg,
     overflow: 'hidden',
   },
   bannerImage: {
-    borderRadius: spacing.radiusXl,
+    borderRadius: spacing.radiusHero,
   },
   bannerScrim: {
     ...StyleSheet.absoluteFill,
     backgroundColor: colors.overlay,
   },
   bannerCopy: {
-    maxWidth: 210,
+    maxWidth: '78%',
     paddingLeft: spacing.xl,
   },
   bannerTitle: {

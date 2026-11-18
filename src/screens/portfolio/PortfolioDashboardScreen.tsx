@@ -132,7 +132,7 @@ export function PortfolioDashboardScreen({navigation}: Props) {
         ))
       ) : (
         <EmptyState
-          description="No leads are linked to your local properties yet."
+          description="No leads are linked to your properties yet."
           title="No recent leads"
         />
       )}
@@ -158,7 +158,7 @@ export function PortfolioDashboardScreen({navigation}: Props) {
         <Text style={styles.summaryText}>
           {stats.totalLeads
             ? `You currently have ${stats.totalLeads} local leads across ${ownedProperties.length} managed properties.`
-            : 'Add or assign more properties to start tracking lead performance.'}
+          : 'Lead activity will appear here when leads are linked to your properties.'}
         </Text>
       </View>
     </ScreenContainer>

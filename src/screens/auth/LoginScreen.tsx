@@ -137,22 +137,6 @@ export function LoginScreen({ navigation }: Props) {
               </Text>
             </Pressable>
 
-            <View style={styles.orRow}>
-              <View style={styles.orLine} />
-              <Text style={styles.orText}>or continue with</Text>
-              <View style={styles.orLine} />
-            </View>
-
-            <View style={styles.socialRow}>
-              <Pressable style={styles.socialButton}>
-                <Icon color={Colors.info} name="logo-google" size={18} />
-                <Text style={styles.socialText}>Google</Text>
-              </Pressable>
-              <Pressable style={styles.socialButton}>
-                <Icon color={Colors.textPrimary} name="logo-apple" size={20} />
-                <Text style={styles.socialText}>Apple</Text>
-              </Pressable>
-            </View>
           </View>
 
           <Text style={styles.termsText}>

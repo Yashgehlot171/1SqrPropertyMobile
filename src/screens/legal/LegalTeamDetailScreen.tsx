@@ -47,17 +47,17 @@ export function LegalTeamDetailScreen({navigation, route}: Props) {
     <ScreenContainer><RemoteStatus loading={remoteLoading} error={remoteError} retry={() => { void loadRemote().catch(() => {}); }} />
       <AppHeader
         title={team.name}
-        subtitle={team.city}
+        subtitle={team.city ?? 'Team information'}
         onBackPress={navigation.goBack}
       />
       <View style={styles.hero}>
-        <Text style={styles.heroLabel}>Specialization</Text>
-        <Text style={styles.heroTitle}>{team.specialization}</Text>
+        {team.specialization ? <Text style={styles.heroLabel}>Specialization</Text> : null}
+        <Text style={styles.heroTitle}>{team.specialization ?? team.name}</Text>
         <Text style={styles.heroCopy}>
-          {team.experience} | {team.email}
+          {[team.experience, team.email].filter(Boolean).join(' | ') || 'Additional team information is not available.'}
         </Text>
         <View style={styles.chips}>
-          {team.highlights.map(item => (
+          {(team.highlights ?? []).map(item => (
             <StatusChip key={item} label={item} />
           ))}
         </View>
@@ -65,27 +65,29 @@ export function LegalTeamDetailScreen({navigation, route}: Props) {
       <View style={styles.card}>
         <SectionHeader title="Team Information" />
         <DetailRow label="Team" value={team.name} />
-        <DetailRow label="City" value={team.city} />
-        <DetailRow label="Phone" value={team.phone} />
-        <DetailRow label="WhatsApp" value={team.whatsapp} />
-        <DetailRow label="Email" value={team.email} />
-        <DetailRow label="Experience" value={team.experience} />
+        {team.city ? <DetailRow label="City" value={team.city} /> : null}
+        {team.phone ? <DetailRow label="Phone" value={team.phone} /> : null}
+        {team.whatsapp ? <DetailRow label="WhatsApp" value={team.whatsapp} /> : null}
+        {team.email ? <DetailRow label="Email" value={team.email} /> : null}
+        {team.experience ? <DetailRow label="Experience" value={team.experience} /> : null}
       </View>
       <View style={styles.actions}>
         <AppButton
-          label="Call"
+          label={team.phone ? 'Call' : 'Call unavailable'}
           onPress={() => {
             void callLegalTeam(team);
           }}
           style={styles.button}
+          disabled={!team.phone}
           variant="outlined"
         />
         <AppButton
-          label="WhatsApp"
+          label={team.whatsapp ? 'WhatsApp' : 'WhatsApp unavailable'}
           onPress={() => {
             void openWhatsAppForLegalTeam(team, 'a legal property request');
           }}
           style={styles.button}
+          disabled={!team.whatsapp}
           variant="outlined"
         />
       </View>

@@ -8,9 +8,21 @@ import type {
   UserRole,
 } from '@/types';
 
-type BackendUser = Partial<UserProfile> & {
+interface BackendCity {
+  id: number;
+  name: string;
+  state?: {id: number; name: string} | null;
+}
+
+type BackendUser = Omit<Partial<UserProfile>, 'city'> & {
+  city?: string | BackendCity | null;
   cityName?: string;
   city_name?: string;
+  stateId?: number;
+  stateName?: string;
+  state_id?: number;
+  state_name?: string;
+  address?: string | null;
   roleName?: UserRole;
   role_name?: UserRole;
   avatarUrl?: string;
@@ -39,13 +51,20 @@ export function normalizeUser(user?: BackendUser | null): UserProfile | undefine
     return undefined;
   }
 
+  const cityObject = user.city && typeof user.city === 'object' ? user.city : null;
+
   return {
     id: user.id ?? user.mobile ?? '',
     name: user.name ?? '',
     mobile: user.mobile ?? '',
     email: user.email ?? '',
-    city: user.city ?? user.cityName ?? user.city_name ?? '',
-    cityId: user.cityId,
+    city:
+      (typeof user.city === 'string' ? user.city : undefined) ??
+      user.cityName ?? user.city_name ?? cityObject?.name ?? '',
+    cityId: user.cityId ?? cityObject?.id,
+    stateId: user.stateId ?? user.state_id ?? cityObject?.state?.id,
+    stateName: user.stateName ?? user.state_name ?? cityObject?.state?.name,
+    address: user.address,
     role: user.role ?? user.roleName ?? user.role_name ?? 'buyer',
     avatar: user.avatar ?? user.avatarUrl ?? user.avatar_url,
     avatarFileId: user.avatarFileId,
@@ -109,6 +128,7 @@ export async function updateMe(
     name: updates.name,
     email: updates.email,
     cityId: updates.cityId,
+    address: updates.address,
     avatarFileId: updates.avatarFileId,
   });
 
